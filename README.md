@@ -827,6 +827,60 @@ ThinkBoot/
 
 ThinkBoot 基于 [MIT](LICENSE) 开源协议发布，完全免费，可自由商用。
 
+## 常见问题（FAQ）
+
+### 1. 不配置某个模块会影响框架启动吗？
+
+**不会！** ThinkBoot 采用 `@ConditionalOnProperty` 条件加载机制，不配置的功能不会加载，不会报错。
+
+例如：不配置 Redis，框架正常运行，只是限流功能会使用警告日志并跳过检查。
+
+### 2. 如何跳过认证？
+
+有三种方式：
+- 使用 `@IgnoreAuth` 注解（推荐）
+- 在类上标注 `@IgnoreAuth`（整个类跳过认证）
+- 在配置文件中使用 `think-boot.auth.exclude-paths`
+
+### 3. 单数据源和多数据源如何选择？
+
+- **单数据源**：90% 的场景使用单数据源即可
+- **多数据源**：需要读写分离、分库分表时使用
+
+多数据源配置以注释形式提供在 `application.yml` 中，需要时取消注释即可。
+
+### 4. 代码生成器如何使用？
+
+修改 `think-boot-codegen` 模块中的 `CodeGeneratorExample` 类，配置数据库连接和表名，然后运行 main 方法即可生成完整的 CRUD 代码。
+
+### 5. 如何自定义统一响应格式？
+
+修改 `think-boot-web` 模块中的 `R` 类，或者在项目中创建自己的响应类。
+
+## 最佳实践
+
+### 1. 按需引入模块
+
+不要一次性引入所有模块，只引入需要的模块。例如：
+- 如果只是提供 REST API，引入 `think-boot-web` 和 `think-boot-auth` 即可
+- 如果需要缓存，再引入 `think-boot-redis`
+
+### 2. 使用 @IgnoreAuth 注解
+
+在 Controller 方法上使用 `@IgnoreAuth` 注解跳过认证，比在配置文件中配置更灵活。
+
+### 3. 使用 BaseEntity
+
+让实体类继承 `BaseEntity`，自动包含 `createdTime`、`updatedTime` 等审计字段，MyBatis-Plus 会自动填充。
+
+### 4. 使用代码生成器
+
+开发新功能时，先使用代码生成器生成基础的 CRUD 代码，然后在此基础上添加业务逻辑。
+
+### 5. 单元测试
+
+为业务代码编写单元测试，ThinkBoot 的核心模块已经覆盖了完整的单元测试，确保功能正确性。
+
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
