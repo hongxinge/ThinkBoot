@@ -625,6 +625,6 @@ ThinkBoot 基于 [MIT](LICENSE) 开源协议发布，完全免费，可自由商
 
 欢迎提交 Issue 和 Pull Request！
 
-## 联系方式
+## 仓库地址
 
-- GitHub: https://github.com/thinkboot
+- Gitee: https://gitee.com/hongxinge/think-boot
