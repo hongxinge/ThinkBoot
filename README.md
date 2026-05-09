@@ -30,6 +30,7 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
 - **模块化设计**：各功能模块独立，按需引入
 - **按需加载**：所有第三方依赖通过条件配置加载，不配置不报错
 - **开箱即用**：零配置或最小配置即可启动
+- **代码生成**：内置代码生成器，一键生成 CRUD 代码
 - **多数据源**：内置动态数据源支持，轻松切换
 - **统一存储**：MinIO/阿里云 OSS/腾讯云 COS 统一接口
 - **免费开源**：遵循 MIT 开源协议，可自由商用
@@ -409,6 +410,83 @@ public class UserService extends ServiceImpl<UserMapper, User> {
 
 > **注意**：使用其他数据库时，需要在 `pom.xml` 中添加对应驱动依赖，并确保 `PaginationInnerInterceptor` 能自动识别数据库类型。
 
+### think-boot-codegen
+
+代码生成模块，基于 MyBatis-Plus Generator 封装。
+
+**包含内容**：
+- 代码生成器：`ThinkBootCodeGenerator`
+- 使用示例：`CodeGeneratorExample`
+
+**使用示例**：
+
+在你的项目中创建代码生成器类：
+
+```java
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.thinkboot.codegen.ThinkBootCodeGenerator;
+
+public class CodeGenerator {
+
+    public static void main(String[] args) {
+        new ThinkBootCodeGenerator()
+                // 数据库连接配置
+                .url("jdbc:mysql://localhost:3306/thinkboot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai")
+                .username("root")
+                .password("root")
+                
+                // 要生成的表名（可设置多个）
+                .tableName("sys_user", "sys_role", "sys_menu")
+                
+                // 模块配置
+                .moduleName("system")
+                
+                // 作者信息
+                .author("Your Name")
+                
+                // 代码输出路径
+                .outputPath("D:/your-project/src/main/java")
+                
+                // 忽略表前缀（sys_ 会被忽略，生成 User/Role/Menu）
+                .ignoreTablePrefix("sys_")
+                
+                // 是否继承 BaseEntity
+                .useBaseEntity(true)
+                
+                // 主键类型
+                .idType(IdType.ASSIGN_ID)
+                
+                // 执行生成
+                .generate();
+    }
+}
+```
+
+**生成的代码包括**：
+- Entity（实体类）：继承 BaseEntity，包含 Swagger 注解
+- Mapper（数据访问层）：继承 BaseMapper
+- Service（业务逻辑接口）：继承 IService
+- ServiceImpl（业务逻辑实现）：继承 ServiceImpl
+- Controller（控制器）：REST 风格
+- Mapper.xml（MyBatis XML 映射文件）
+
+**支持的配置项**：
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| url | 数据库连接 URL | - |
+| username | 数据库用户名 | root |
+| password | 数据库密码 | root |
+| tableName | 要生成的表名 | - |
+| moduleName | 模块名称 | - |
+| author | 作者 | thinkboot |
+| outputPath | 代码输出路径 | 当前目录 |
+| parentPackage | 父包名 | com.thinkboot |
+| ignoreTablePrefix | 忽略的表前缀 | sys_ |
+| useBaseEntity | 是否继承 BaseEntity | false |
+| useLogicDelete | 是否启用逻辑删除 | false |
+| idType | 主键类型 | ASSIGN_ID |
+
 ### think-boot-redis
 
 Redis 缓存模块。
@@ -733,6 +811,10 @@ ThinkBoot/
 │       ├── config/                      # 存储配置
 │       ├── domain/                      # 存储结果
 │       └── service/                     # 存储服务
+├── think-boot-codegen/                  # 代码生成模块
+│   └── src/main/java/com/thinkboot/codegen/
+│       ├── ThinkBootCodeGenerator       # 代码生成器
+│       └── example/                     # 使用示例
 └── think-boot-example/                  # 示例项目
     └── src/main/
         ├── java/                        # Java 代码

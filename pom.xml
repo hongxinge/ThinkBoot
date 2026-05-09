@@ -26,6 +26,7 @@
         <module>think-boot-database</module>
         <module>think-boot-redis</module>
         <module>think-boot-storage</module>
+        <module>think-boot-codegen</module>
         <module>think-boot-example</module>
     </modules>
 
@@ -78,6 +79,11 @@
             <dependency>
                 <groupId>com.thinkboot</groupId>
                 <artifactId>think-boot-storage</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.thinkboot</groupId>
+                <artifactId>think-boot-codegen</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
