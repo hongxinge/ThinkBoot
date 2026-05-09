@@ -183,7 +183,7 @@ mvn spring-boot:run
 - 常量定义：`CommonConstants`、`RedisConstants`
 - 枚举：`ResultCode`
 - 异常：`BusinessException`
-- 工具类：`ServletUtils`、`ExcelUtils`、`SmsUtils`、`EmailUtils`
+- 工具类：`ServletUtils`、`ExcelUtils`
 
 ### think-boot-web
 
@@ -537,38 +537,63 @@ public class ExcelController {
 }
 ```
 
-### 使用短信工具
+### 使用限流注解
 
 ```java
-// 生成验证码
-String code = SmsUtils.generateCode(6);
-
-// 发送阿里云短信
-boolean success = SmsUtils.sendAliyunSms(
-    "13800138000",           // 手机号
-    "ThinkBoot",             // 签名
-    "SMS_123456",            // 模板 ID
-    "{\"code\":\"" + code + "\"}",  // 模板参数
-    "your_access_key_id",    // AccessKey ID
-    "your_access_key_secret" // AccessKey Secret
-);
+@RestController
+public class ApiController {
+    
+    // 默认限流：60 秒内最多 100 次请求
+    @RateLimit
+    @GetMapping("/api/data")
+    public R<List<String>> getData() {
+        return R.ok(List.of("data1", "data2"));
+    }
+    
+    // IP 维度限流：60 秒内最多 50 次请求
+    @RateLimit(key = "api:query", time = 60, count = 50, limitType = RateLimit.LimitType.IP)
+    @GetMapping("/api/query")
+    public R<String> query() {
+        return R.ok("success");
+    }
+    
+    // 用户维度限流：60 秒内最多 20 次请求
+    @RateLimit(key = "api:submit", time = 60, count = 20, limitType = RateLimit.LimitType.USER, message = "提交过于频繁")
+    @PostMapping("/api/submit")
+    public R<Void> submit() {
+        return R.ok();
+    }
+}
 ```
 
-### 使用邮件工具
+### 使用操作日志注解
 
 ```java
-EmailUtils emailUtils = EmailUtils.create(
-    "smtp.example.com",  // SMTP 服务器
-    465,                 // 端口
-    "sender@example.com", // 发件人
-    "password"           // 密码/授权码
-);
-
-// 发送纯文本邮件
-emailUtils.sendText("receiver@example.com", "邮件标题", "邮件内容");
-
-// 发送 HTML 邮件
-emailUtils.sendHtml("receiver@example.com", "邮件标题", "<h1>HTML 内容</h1>");
+@RestController
+@RequestMapping("/api/user")
+public class UserController {
+    
+    @OperationLog(title = "用户管理", description = "创建用户", businessType = OperationLog.BusinessType.INSERT)
+    @PostMapping
+    public R<Void> create(@RequestBody User user) {
+        userService.save(user);
+        return R.ok();
+    }
+    
+    @OperationLog(title = "用户管理", description = "更新用户", businessType = OperationLog.BusinessType.UPDATE)
+    @PutMapping
+    public R<Void> update(@RequestBody User user) {
+        userService.updateById(user);
+        return R.ok();
+    }
+    
+    @OperationLog(title = "用户管理", description = "删除用户", businessType = OperationLog.BusinessType.DELETE)
+    @DeleteMapping("/{id}")
+    public R<Void> delete(@PathVariable Long id) {
+        userService.removeById(id);
+        return R.ok();
+    }
+}
 ```
 
 ## 项目结构
@@ -582,11 +607,11 @@ ThinkBoot/
 │       ├── enums/                       # 枚举
 │       ├── exception/                   # 异常
 │       └── utils/                       # 工具类
-│           ├── excel/                   # Excel 工具
-│           ├── sms/                     # 短信工具
-│           └── email/                   # 邮件工具
+│           └── excel/                   # Excel 工具
 ├── think-boot-web/                      # Web 模块
 │   └── src/main/java/com/thinkboot/web/
+│       ├── annotation/                  # 注解（限流、操作日志）
+│       ├── aspect/                      # AOP 切面
 │       ├── config/                      # 配置类
 │       │   └── log/                     # 日志配置
 │       ├── handler/                     # 异常处理
