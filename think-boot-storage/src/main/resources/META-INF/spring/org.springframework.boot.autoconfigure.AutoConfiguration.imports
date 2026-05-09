@@ -1,0 +1,3 @@
+com.thinkboot.storage.config.MinioConfig
+com.thinkboot.storage.config.AliyunOssConfig
+com.thinkboot.storage.config.TencentCosConfig

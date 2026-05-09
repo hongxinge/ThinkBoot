@@ -1,0 +1,2 @@
+com.thinkboot.auth.config.SaTokenConfigure
+com.thinkboot.auth.config.SaTokenWebMvcConfig
