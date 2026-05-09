@@ -184,6 +184,22 @@ mvn spring-boot:run
 - 枚举：`ResultCode`
 - 异常：`BusinessException`
 - 工具类：`ServletUtils`、`ExcelUtils`
+- 对象转换：`BaseConverter`（MapStruct 接口）
+
+**使用示例**：
+```java
+// DTO 转实体
+@Mapper(componentModel = "spring")
+public interface UserConverter extends BaseConverter<UserDTO, User> {
+}
+
+// 使用
+@Autowired
+private UserConverter userConverter;
+
+User user = userConverter.to(userDTO);
+List<User> users = userConverter.toList(userDTOList);
+```
 
 ### think-boot-web
 
@@ -608,6 +624,7 @@ ThinkBoot/
 │       ├── exception/                   # 异常
 │       └── utils/                       # 工具类
 │           └── excel/                   # Excel 工具
+│       └── converter/                   # 对象转换
 ├── think-boot-web/                      # Web 模块
 │   └── src/main/java/com/thinkboot/web/
 │       ├── annotation/                  # 注解（限流、操作日志）
