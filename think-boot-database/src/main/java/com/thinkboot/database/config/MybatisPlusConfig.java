@@ -1,6 +1,5 @@
 package com.thinkboot.database.config;
 
-import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerInterceptor;
@@ -21,8 +20,9 @@ public class MybatisPlusConfig {
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         
-        PaginationInnerInterceptor paginationInterceptor = new PaginationInnerInterceptor(DbType.MYSQL);
+        PaginationInnerInterceptor paginationInterceptor = new PaginationInnerInterceptor();
         paginationInterceptor.setMaxLimit(500L);
+        paginationInterceptor.setOverflow(false);
         interceptor.addInnerInterceptor(paginationInterceptor);
         
         interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());

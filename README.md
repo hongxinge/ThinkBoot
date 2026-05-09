@@ -350,30 +350,64 @@ public R<PageResult<User>> list(PageQuery query) {
 }
 ```
 
-**多数据源配置**：
+**数据源配置**：
+
+单数据源配置（默认方式，开箱即用）：
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/your_db?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: your_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+```
+
+多数据源配置（需要时切换）：
 ```yaml
 spring:
   datasource:
     dynamic:
-      primary: master
+      primary: master          # 默认数据源
+      strict: false            # 严格模式：true-未匹配到数据源抛异常，false-未匹配使用默认数据源
       datasource:
-        master:
+        master:                # 主库（写操作）
           url: jdbc:mysql://localhost:3306/db1
           username: root
           password: root123
-        slave:
+          driver-class-name: com.mysql.cj.jdbc.Driver
+        slave:                 # 从库（读操作）
           url: jdbc:mysql://localhost:3306/db2
           username: root
           password: root123
+          driver-class-name: com.mysql.cj.jdbc.Driver
 ```
 
+**切换数据源示例**：
 ```java
-// 使用从库
-@DS("slave")
-public List<User> queryFromSlave() {
-    return list();
+@Service
+public class UserService extends ServiceImpl<UserMapper, User> {
+    
+    // 使用从库查询
+    @DS("slave")
+    public List<User> queryFromSlave() {
+        return list();
+    }
+    
+    // 使用主库写入（默认）
+    public void saveUser(User user) {
+        save(user);
+    }
 }
 ```
+
+**支持的数据源类型**：
+- MySQL（默认内置）
+- PostgreSQL
+- Oracle
+- SQL Server
+- 其他 MyBatis-Plus 支持的数据库
+
+> **注意**：使用其他数据库时，需要在 `pom.xml` 中添加对应驱动依赖，并确保 `PaginationInnerInterceptor` 能自动识别数据库类型。
 
 ### think-boot-redis
 

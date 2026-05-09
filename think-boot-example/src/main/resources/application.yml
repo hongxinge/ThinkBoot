@@ -2,16 +2,38 @@ server:
   port: 8080
 
 spring:
+  # ==========================================
+  # 单数据源配置（默认启用，直接使用即可）
+  # ==========================================
   datasource:
-    dynamic:
-      primary: master
-      strict: false
-      datasource:
-        master:
-          url: jdbc:mysql://localhost:3306/thinkboot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-          username: root
-          password: root
-          driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/thinkboot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # ==========================================
+  # 多数据源配置（使用时请注释上面的单数据源配置，然后取消注释下面的配置）
+  # ==========================================
+  # datasource:
+  #   dynamic:
+  #     primary: master          # 默认数据源
+  #     strict: false            # 严格模式：true-未匹配到数据源抛异常，false-未匹配使用默认数据源
+  #     datasource:
+  #       master:                # 主库（写操作）
+  #         url: jdbc:mysql://localhost:3306/thinkboot_master?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+  #         username: root
+  #         password: root
+  #         driver-class-name: com.mysql.cj.jdbc.Driver
+  #       slave:                 # 从库（读操作）
+  #         url: jdbc:mysql://localhost:3306/thinkboot_slave?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+  #         username: root
+  #         password: root
+  #         driver-class-name: com.mysql.cj.jdbc.Driver
+  #       oracle:                # Oracle 数据源示例
+  #         url: jdbc:oracle:thin:@localhost:1521:orcl
+  #         username: system
+  #         password: oracle
+  #         driver-class-name: oracle.jdbc.OracleDriver
   data:
     redis:
       host: localhost
