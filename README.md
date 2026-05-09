@@ -242,6 +242,7 @@ public class UserController {
 - 拦截器配置：`SaTokenWebMvcConfig`
 - 认证服务：`AuthService`
 - 登录用户：`LoginUser`
+- 忽略认证注解：`@IgnoreAuth`
 
 **使用示例**：
 ```java
@@ -263,6 +264,49 @@ public class AuthController {
         return R.ok(authService.getLoginUser());
     }
 }
+```
+
+**跳过认证的方式**：
+
+方式一：使用 `@IgnoreAuth` 注解（推荐）
+```java
+@RestController
+public class AuthController {
+    
+    @IgnoreAuth
+    @PostMapping("/login")
+    public R<String> login(@RequestParam String username, @RequestParam String password) {
+        // 不需要登录即可访问
+        return R.ok("token");
+    }
+    
+    @IgnoreAuth
+    @PostMapping("/register")
+    public R<Void> register(@RequestBody User user) {
+        // 注册接口不需要登录
+        return R.ok();
+    }
+}
+```
+
+方式二：在 Controller 类上标注（整个类跳过认证）
+```java
+@IgnoreAuth
+@RestController
+public class PublicController {
+    // 所有接口都不需要登录
+}
+```
+
+方式三：在配置文件中配置白名单
+```yaml
+think-boot:
+  auth:
+    enabled: true
+    exclude-paths:
+      - /login
+      - /register
+      - /api/public/**
 ```
 
 ### think-boot-database
@@ -445,6 +489,9 @@ think-boot:
   # 认证模块
   auth:
     enabled: true              # 是否启用（默认 false）
+    exclude-paths:             # 排除路径（可选，与 @IgnoreAuth 注解配合使用）
+      - /login
+      - /register
   
   # 数据库模块
   database:
@@ -635,6 +682,7 @@ ThinkBoot/
 │       └── result/                      # 响应封装
 ├── think-boot-auth/                     # 认证模块
 │   └── src/main/java/com/thinkboot/auth/
+│       ├── annotation/                  # 注解
 │       ├── config/                      # Sa-Token 配置
 │       ├── domain/                      # 登录用户
 │       └── service/                     # 认证服务
