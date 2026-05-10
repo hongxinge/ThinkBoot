@@ -10,39 +10,35 @@
         <version>1.0.0</version>
     </parent>
 
-    <artifactId>think-boot-example</artifactId>
+    <artifactId>think-boot-cache</artifactId>
     <packaging>jar</packaging>
-    <name>ThinkBoot Example</name>
-    <description>Example project demonstrating ThinkBoot usage</description>
+    <name>ThinkBoot Cache</name>
+    <description>Cache module: Spring Cache annotation support</description>
 
     <dependencies>
         <dependency>
             <groupId>com.thinkboot</groupId>
-            <artifactId>think-boot-auth</artifactId>
+            <artifactId>think-boot-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.thinkboot</groupId>
-            <artifactId>think-boot-database</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
         <dependency>
             <groupId>com.thinkboot</groupId>
             <artifactId>think-boot-redis</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.thinkboot</groupId>
-            <artifactId>think-boot-storage</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.thinkboot</groupId>
-            <artifactId>think-boot-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.thinkboot</groupId>
-            <artifactId>think-boot-cache</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -54,19 +50,5 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
 </project>

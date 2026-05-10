@@ -27,6 +27,8 @@
         <module>think-boot-redis</module>
         <module>think-boot-storage</module>
         <module>think-boot-codegen</module>
+        <module>think-boot-security</module>
+        <module>think-boot-cache</module>
         <module>think-boot-example</module>
     </modules>
 
@@ -84,6 +86,16 @@
             <dependency>
                 <groupId>com.thinkboot</groupId>
                 <artifactId>think-boot-codegen</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.thinkboot</groupId>
+                <artifactId>think-boot-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.thinkboot</groupId>
+                <artifactId>think-boot-cache</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

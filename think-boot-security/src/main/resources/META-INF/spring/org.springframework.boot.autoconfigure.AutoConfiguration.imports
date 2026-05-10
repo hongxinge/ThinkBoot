@@ -1,0 +1,2 @@
+com.thinkboot.security.config.XssAutoConfig
+com.thinkboot.security.config.SecurityAspectConfig

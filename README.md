@@ -30,6 +30,7 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
 - **模块化设计**：各功能模块独立，按需引入
 - **按需加载**：所有第三方依赖通过条件配置加载，不配置不报错
 - **开箱即用**：零配置或最小配置即可启动
+- **企业级特性**：内置 XSS 防护、接口幂等性、分布式锁、Spring Cache 支持
 - **代码生成**：内置代码生成器，一键生成 CRUD 代码
 - **多数据源**：内置动态数据源支持，轻松切换
 - **统一存储**：MinIO/阿里云 OSS/腾讯云 COS 统一接口
@@ -44,7 +45,8 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
 | 认证鉴权 | Sa-Token | 1.38.0 |
 | ORM 框架 | MyBatis-Plus | 3.5.6 |
 | 多数据源 | Dynamic Datasource | 4.3.0 |
-| 缓存 | Spring Data Redis | - |
+| 缓存 | Spring Data Redis / Spring Cache | - |
+| 连接池 | HikariCP | - |
 | 工具库 | Hutool | 5.8.27 |
 | API 文档 | SpringDoc (OpenAPI 3) | 2.5.0 |
 | 对象存储 | MinIO / 阿里云 OSS / 腾讯云 COS | - |
@@ -96,6 +98,18 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
     <dependency>
         <groupId>com.thinkboot</groupId>
         <artifactId>think-boot-redis</artifactId>
+    </dependency>
+    
+    <!-- 缓存抽象层模块（Spring Cache 注解支持） -->
+    <dependency>
+        <groupId>com.thinkboot</groupId>
+        <artifactId>think-boot-cache</artifactId>
+    </dependency>
+    
+    <!-- 安全模块（XSS、幂等性、分布式锁） -->
+    <dependency>
+        <groupId>com.thinkboot</groupId>
+        <artifactId>think-boot-security</artifactId>
     </dependency>
     
     <!-- 对象存储模块 -->
@@ -512,6 +526,215 @@ String name = (String) redisUtils.hGet("user:1", "name");
 redisUtils.delete("key");
 ```
 
+### think-boot-cache
+
+缓存抽象层模块，基于 Spring Cache 实现。
+
+**包含内容**：
+- Spring Cache 注解支持：`@Cacheable`、`@CachePut`、`@CacheEvict`
+- Redis CacheManager 配置
+- Jackson2JsonRedisSerializer 序列化
+- 多缓存配置：default（1小时）、short（10分钟）、long（24小时）
+
+**使用示例**：
+```java
+@Service
+public class UserService extends ServiceImpl<UserMapper, User> {
+    
+    // 查询时缓存数据（1小时过期）
+    @Cacheable(value = "user", key = "#id")
+    public User getById(Long id) {
+        return super.getById(id);
+    }
+    
+    // 更新时同步缓存
+    @CachePut(value = "user", key = "#user.id")
+    public User updateUser(User user) {
+        updateById(user);
+        return user;
+    }
+    
+    // 删除时清除缓存
+    @CacheEvict(value = "user", key = "#id")
+    public void deleteUser(Long id) {
+        removeById(id);
+    }
+    
+    // 使用不同过期时间的缓存（short = 10分钟）
+    @Cacheable(value = "short", key = "#code")
+    public String getSmsCode(String phone) {
+        // 生成并发送短信验证码
+        return generateCode();
+    }
+}
+```
+
+**支持的注解**：
+
+| 注解 | 说明 | 使用场景 |
+|------|------|----------|
+| `@Cacheable` | 查询时缓存 | 详情查询、列表查询 |
+| `@CachePut` | 更新缓存 | 数据修改后同步缓存 |
+| `@CacheEvict` | 清除缓存 | 数据删除时清除缓存 |
+
+### think-boot-security
+
+安全防护模块，提供 XSS 防护、接口幂等性、分布式锁等企业级安全特性。
+
+**包含内容**：
+- XSS 防护：自动过滤请求参数中的 XSS 攻击代码
+- 接口幂等性：基于 Redis Token 机制，防止重复提交
+- 分布式锁：基于 Redis SETNX + Lua 脚本，支持 SpEL 表达式
+
+#### XSS 防护
+
+**开箱即用，无需任何配置**，框架自动拦截以下攻击：
+- `<script>` 标签注入
+- `javascript:` 协议注入
+- `eval()` 函数调用
+- 其他 HTML 标签注入
+
+XSS 防护会自动排除 Swagger、API Docs 等开发工具路径。
+
+#### 接口幂等性
+
+**使用示例**：
+
+```java
+@RestController
+public class OrderController {
+    
+    @Autowired
+    private OrderService orderService;
+    
+    // 方式一：自动模式（基于请求参数 MD5 生成幂等 key）
+    @PostMapping("/order/create")
+    @Idempotent(time = 5, message = "订单提交过于频繁")
+    public R<Void> createOrder(@RequestBody OrderDTO dto) {
+        orderService.createOrder(dto);
+        return R.ok();
+    }
+    
+    // 方式二：Token 模式（前端先获取 Token，提交时携带 Token）
+    @PostMapping("/order/submit")
+    @Idempotent(useToken = true, message = "Token 已失效")
+    public R<Void> submitOrder(
+            @RequestHeader("X-Idempotent-Token") String token,
+            @RequestBody OrderDTO dto) {
+        orderService.createOrder(dto);
+        return R.ok();
+    }
+    
+    // 获取幂等 Token
+    @GetMapping("/order/token")
+    public R<String> getIdempotentToken() {
+        String token = idempotentTokenService.getToken();
+        return R.ok(token);
+    }
+}
+```
+
+**参数说明**：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| time | 幂等校验时间（秒） | 3 |
+| message | 提示信息 | "请勿重复提交" |
+| useToken | 是否使用 Token 模式 | false |
+
+**两种模式说明**：
+- **自动模式**：基于请求参数的 MD5 值生成幂等 key，适用于参数相同的请求不会重复提交的场景
+- **Token 模式**：前端先调用 `/order/token` 获取 Token，提交时在请求头携带 `X-Idempotent-Token`，适用于严格防重复提交的场景
+
+#### 分布式锁
+
+**使用示例**：
+
+```java
+@Service
+public class InventoryService {
+    
+    @Autowired
+    private ProductMapper productMapper;
+    
+    // 分布式锁示例：库存扣减
+    @DistributedLock(key = "'inventory:' + #productId", leaseTime = 10)
+    public void deductStock(Long productId, int quantity) {
+        Product product = productMapper.selectById(productId);
+        if (product.getStock() < quantity) {
+            throw new RuntimeException("库存不足");
+        }
+        product.setStock(product.getStock() - quantity);
+        productMapper.updateById(product);
+    }
+    
+    // 支持等待时间
+    @DistributedLock(key = "'order:lock:' + #orderId", waitTime = 3, leaseTime = 30)
+    public void processOrder(Long orderId) {
+        // 处理订单逻辑
+    }
+}
+```
+
+**参数说明**：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| key | 锁的 key（支持 SpEL 表达式） | 必填 |
+| waitTime | 等待时间（秒） | 3 |
+| leaseTime | 锁自动释放时间（秒） | 10 |
+| message | 提示信息 | "操作过于频繁，请稍后再试" |
+
+**SpEL 表达式示例**：
+- `key = "'user:lock:' + #id"` - 基于方法参数
+- `key = "'order:lock:' + #order.id"` - 基于对象属性
+- `key = "'cache:lock:' + #result.data"` - 基于返回值
+
+#### 事务管理
+
+**使用示例**：
+```java
+@Service
+public class OrderService {
+    
+    @Autowired
+    private OrderMapper orderMapper;
+    @Autowired
+    private InventoryService inventoryService;
+    
+    // 事务回滚示例
+    @Transactional(rollbackFor = Exception.class)
+    public void createOrder(Order order) {
+        // 1. 创建订单
+        orderMapper.insert(order);
+        
+        // 2. 扣减库存（如果失败，整个事务回滚）
+        inventoryService.deductStock(order.getProductId(), order.getQuantity());
+        
+        // 3. 如果这里抛出异常，订单和库存都会回滚
+        if (order.getAmount() < 0) {
+            throw new RuntimeException("订单金额不能为负");
+        }
+    }
+}
+```
+
+**推荐配置**：
+
+在 `application.yml` 中优化 HikariCP 连接池参数：
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20        # 最大连接数
+      minimum-idle: 5              # 最小空闲连接
+      connection-timeout: 30000    # 连接超时（毫秒）
+      idle-timeout: 600000         # 空闲连接超时（毫秒）
+      max-lifetime: 1800000        # 连接最大生命周期（毫秒）
+      pool-name: ThinkBootHikariPool
+```
+
 ### think-boot-storage
 
 对象存储模块，支持 MinIO、阿里云 OSS、腾讯云 COS。
@@ -815,6 +1038,16 @@ ThinkBoot/
 │   └── src/main/java/com/thinkboot/codegen/
 │       ├── ThinkBootCodeGenerator       # 代码生成器
 │       └── example/                     # 使用示例
+├── think-boot-security/                 # 安全模块
+│   └── src/main/java/com/thinkboot/security/
+│       ├── annotation/                  # 注解（幂等性、分布式锁）
+│       ├── aspect/                      # AOP 切面
+│       ├── config/                      # 自动配置类
+│       ├── filter/                      # XSS 过滤器
+│       └── service/                     # 幂等性 Token 服务
+├── think-boot-cache/                    # 缓存抽象层模块
+│   └── src/main/java/com/thinkboot/cache/
+│       └── config/                      # CacheManager 配置
 └── think-boot-example/                  # 示例项目
     └── src/main/
         ├── java/                        # Java 代码
@@ -853,9 +1086,41 @@ ThinkBoot 基于 [MIT](LICENSE) 开源协议发布，完全免费，可自由商
 
 修改 `think-boot-codegen` 模块中的 `CodeGeneratorExample` 类，配置数据库连接和表名，然后运行 main 方法即可生成完整的 CRUD 代码。
 
-### 5. 如何自定义统一响应格式？
+### 5. 如何使用幂等性防止重复提交？
 
-修改 `think-boot-web` 模块中的 `R` 类，或者在项目中创建自己的响应类。
+有两种方式：
+- **自动模式**：基于请求参数的 MD5 值生成幂等 key
+  ```java
+  @Idempotent(time = 5, message = "请勿重复提交")
+  @PostMapping("/order")
+  public R<Void> createOrder(@RequestBody OrderDTO dto) { ... }
+  ```
+- **Token 模式**：前端先获取 Token，提交时携带 Token
+  ```java
+  @Idempotent(useToken = true, message = "Token 已失效")
+  @PostMapping("/order")
+  public R<Void> createOrder(@RequestHeader("X-Idempotent-Token") String token, @RequestBody OrderDTO dto) { ... }
+  ```
+
+### 6. 如何使用分布式锁？
+
+在方法上添加 `@DistributedLock` 注解，支持 SpEL 表达式：
+
+```java
+@DistributedLock(key = "'inventory:' + #productId", leaseTime = 10)
+public void deductStock(Long productId, int quantity) { ... }
+```
+
+### 7. 如何使用 Spring Cache？
+
+直接使用 Spring 的 `@Cacheable`、`@CachePut`、`@CacheEvict` 注解即可：
+
+```java
+@Cacheable(value = "user", key = "#id")
+public User getById(Long id) {
+    return super.getById(id);
+}
+```
 
 ## 最佳实践
 
