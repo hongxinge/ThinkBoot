@@ -25,12 +25,15 @@ public class EnterpriseDemoController {
     @Autowired
     private UserService userService;
 
-    @Autowired
+    @Autowired(required = false)
     private IdempotentTokenService idempotentTokenService;
 
     @GetMapping("/token")
     @Operation(summary = "获取幂等性 Token")
     public R<String> getIdempotentToken() {
+        if (idempotentTokenService == null) {
+            return R.fail("Redis 未启用，无法生成幂等 Token");
+        }
         String token = idempotentTokenService.getToken();
         return R.ok(token);
     }
