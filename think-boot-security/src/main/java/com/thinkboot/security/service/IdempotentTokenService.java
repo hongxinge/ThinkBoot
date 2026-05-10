@@ -33,6 +33,9 @@ public class IdempotentTokenService {
         if (redisTemplate == null) {
             return null;
         }
+        if (expireSeconds <= 0) {
+            throw new IllegalArgumentException("expireSeconds must be positive");
+        }
         String token = IdUtil.fastSimpleUUID();
         String key = IDEMPOTENT_PREFIX + token;
         redisTemplate.opsForValue().set(key, "1", expireSeconds, TimeUnit.SECONDS);

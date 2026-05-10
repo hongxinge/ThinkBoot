@@ -45,7 +45,11 @@ public class IdempotentAspect {
             return point.proceed();
         }
 
-        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            throw new BusinessException("Cannot perform idempotency check outside of web request context");
+        }
+        HttpServletRequest request = attributes.getRequest();
         String token = request.getHeader(IDEMPOTENT_TOKEN_HEADER);
 
         String idempotentKey;
@@ -54,15 +58,16 @@ public class IdempotentAspect {
                 throw new BusinessException("缺少幂等性 Token，请先请求获取 Token");
             }
             idempotentKey = IDEMPOTENT_PREFIX + token;
-            Boolean exists = redisTemplate.hasKey(idempotentKey);
-            if (Boolean.FALSE.equals(exists)) {
+            Boolean deleted = redisTemplate.delete(idempotentKey);
+            if (Boolean.FALSE.equals(deleted)) {
+                log.warn("Idempotent token validation failed for key: {}", idempotentKey);
                 throw new BusinessException(idempotent.message());
             }
-            redisTemplate.delete(idempotentKey);
         } else {
             idempotentKey = buildKeyFromRequest(point);
             Boolean setSuccess = redisTemplate.opsForValue().setIfAbsent(idempotentKey, "1", idempotent.time(), TimeUnit.SECONDS);
             if (Boolean.FALSE.equals(setSuccess)) {
+                log.warn("Duplicate request detected for key: {}", idempotentKey);
                 throw new BusinessException(idempotent.message());
             }
         }

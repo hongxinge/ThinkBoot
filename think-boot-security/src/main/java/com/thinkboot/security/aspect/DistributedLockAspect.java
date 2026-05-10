@@ -35,8 +35,7 @@ public class DistributedLockAspect {
     private static final String LOCK_PREFIX = "thinkboot:lock:";
 
     private static final String LOCK_LUA_SCRIPT =
-            "if redis.call('setnx', KEYS[1], ARGV[1]) == 1 then " +
-            "    redis.call('expire', KEYS[1], ARGV[2]) " +
+            "if redis.call('set', KEYS[1], ARGV[1], 'NX', 'EX', ARGV[2]) then " +
             "    return 1 " +
             "else " +
             "    return 0 " +
@@ -48,6 +47,10 @@ public class DistributedLockAspect {
             "else " +
             "    return 0 " +
             "end";
+
+    private static final DefaultRedisScript<Long> LOCK_SCRIPT = new DefaultRedisScript<>(LOCK_LUA_SCRIPT, Long.class);
+    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT = new DefaultRedisScript<>(UNLOCK_LUA_SCRIPT, Long.class);
+    private static final ExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
     @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
@@ -73,7 +76,12 @@ public class DistributedLockAspect {
                 acquired = true;
                 break;
             }
-            Thread.sleep(100);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new BusinessException("Lock acquisition interrupted");
+            }
         }
 
         if (!acquired) {
@@ -88,9 +96,8 @@ public class DistributedLockAspect {
     }
 
     private Boolean tryAcquireLock(String lockKey, String lockValue, int leaseTime) {
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>(LOCK_LUA_SCRIPT, Long.class);
         Long result = redisTemplate.execute(
-                script,
+                LOCK_SCRIPT,
                 Collections.singletonList(lockKey),
                 lockValue,
                 String.valueOf(leaseTime)
@@ -100,9 +107,8 @@ public class DistributedLockAspect {
 
     private void releaseLock(String lockKey, String lockValue) {
         try {
-            DefaultRedisScript<Long> script = new DefaultRedisScript<>(UNLOCK_LUA_SCRIPT, Long.class);
             redisTemplate.execute(
-                    script,
+                    UNLOCK_SCRIPT,
                     Collections.singletonList(lockKey),
                     lockValue
             );
@@ -112,7 +118,6 @@ public class DistributedLockAspect {
     }
 
     private String parseKey(ProceedingJoinPoint point, String keyExpression) {
-        ExpressionParser parser = new SpelExpressionParser();
         StandardEvaluationContext context = new StandardEvaluationContext();
 
         MethodSignature signature = (MethodSignature) point.getSignature();
@@ -126,6 +131,10 @@ public class DistributedLockAspect {
             }
         }
 
-        return parser.parseExpression(keyExpression).getValue(context, String.class);
+        String result = SPEL_PARSER.parseExpression(keyExpression).getValue(context, String.class);
+        if (result == null) {
+            throw new BusinessException("Distributed lock key expression evaluated to null: " + keyExpression);
+        }
+        return result;
     }
 }
