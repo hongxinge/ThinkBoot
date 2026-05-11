@@ -1152,4 +1152,5 @@ public User getById(Long id) {
 
 ## 仓库地址
 
+- GitHub: https://github.com/hongxinge/ThinkBoot
 - Gitee: https://gitee.com/hongxinge/think-boot
