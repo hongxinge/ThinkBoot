@@ -1,0 +1,25 @@
+-- 操作日志表
+CREATE TABLE IF NOT EXISTS `sys_operation_log` (
+  `id` BIGINT NOT NULL COMMENT '主键ID',
+  `title` VARCHAR(100) DEFAULT '' COMMENT '模块标题',
+  `description` VARCHAR(500) DEFAULT '' COMMENT '操作描述',
+  `business_type` VARCHAR(20) DEFAULT 'OTHER' COMMENT '业务类型：INSERT/UPDATE/DELETE/QUERY/IMPORT/EXPORT/LOGIN/LOGOUT/OTHER',
+  `class_name` VARCHAR(200) DEFAULT '' COMMENT '类名称',
+  `method_name` VARCHAR(100) DEFAULT '' COMMENT '方法名称',
+  `request_method` VARCHAR(10) DEFAULT '' COMMENT '请求方法：GET/POST/PUT/DELETE',
+  `request_url` VARCHAR(500) DEFAULT '' COMMENT '请求URL',
+  `operator` VARCHAR(50) DEFAULT '' COMMENT '操作人',
+  `operator_ip` VARCHAR(50) DEFAULT '' COMMENT '操作人IP',
+  `operator_location` VARCHAR(200) DEFAULT '' COMMENT '操作人位置',
+  `request_params` TEXT COMMENT '请求参数',
+  `response_result` TEXT COMMENT '响应结果',
+  `status` TINYINT DEFAULT 1 COMMENT '状态：0-失败 1-成功',
+  `error_msg` TEXT COMMENT '错误信息',
+  `cost_time` BIGINT DEFAULT 0 COMMENT '执行时间（毫秒）',
+  `created_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_business_type` (`business_type`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_time` (`created_time`),
+  KEY `idx_operator_ip` (`operator_ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
