@@ -3,12 +3,15 @@ package com.thinkboot.web.result;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.thinkboot.core.constant.CommonConstants;
 import lombok.Data;
+import org.slf4j.MDC;
 
 import java.io.Serializable;
 
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class R<T> implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private int code;
 
@@ -18,8 +21,11 @@ public class R<T> implements Serializable {
 
     private long timestamp;
 
+    private String traceId;
+
     public R() {
         this.timestamp = System.currentTimeMillis();
+        this.traceId = MDC.get("traceId");
     }
 
     public static <T> R<T> ok() {
