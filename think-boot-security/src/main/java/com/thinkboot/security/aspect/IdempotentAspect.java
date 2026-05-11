@@ -21,10 +21,6 @@ import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
-/**
- * 接口幂等性切面
- * 防止接口重复提交，基于 Redis Token 机制实现
- */
 @Aspect
 @Component
 @ConditionalOnBean(RedisTemplate.class)
@@ -55,16 +51,16 @@ public class IdempotentAspect {
         String idempotentKey;
         if (idempotent.useToken()) {
             if (token == null || token.isEmpty()) {
-                throw new BusinessException("缺少幂等性 Token，请先请求获取 Token");
+                throw new BusinessException("Missing idempotent token, please request token first");
             }
             idempotentKey = IDEMPOTENT_PREFIX + token;
-            Boolean deleted = redisTemplate.delete(idempotentKey);
-            if (Boolean.FALSE.equals(deleted)) {
+            Boolean exists = redisTemplate.hasKey(idempotentKey);
+            if (Boolean.FALSE.equals(exists)) {
                 log.warn("Idempotent token validation failed for key: {}", idempotentKey);
                 throw new BusinessException(idempotent.message());
             }
         } else {
-            idempotentKey = buildKeyFromRequest(point);
+            idempotentKey = buildKeyFromRequest(point, request);
             Boolean setSuccess = redisTemplate.opsForValue().setIfAbsent(idempotentKey, "1", idempotent.time(), TimeUnit.SECONDS);
             if (Boolean.FALSE.equals(setSuccess)) {
                 log.warn("Duplicate request detected for key: {}", idempotentKey);
@@ -72,15 +68,22 @@ public class IdempotentAspect {
             }
         }
 
-        return point.proceed();
+        try {
+            return point.proceed();
+        } finally {
+            if (idempotent.useToken()) {
+                redisTemplate.delete(idempotentKey);
+            }
+        }
     }
 
-    private String buildKeyFromRequest(ProceedingJoinPoint point) {
+    private String buildKeyFromRequest(ProceedingJoinPoint point, HttpServletRequest request) {
         try {
             MethodSignature signature = (MethodSignature) point.getSignature();
-            String method = signature.getMethod().toString();
-            String args = Arrays.toString(point.getArgs());
-            String input = method + args;
+            String httpMethod = request.getMethod();
+            String uri = request.getRequestURI();
+            String args = (point.getArgs() != null) ? Arrays.toString(point.getArgs()) : "";
+            String input = httpMethod + ":" + uri + args;
 
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] digest = md.digest(input.getBytes());

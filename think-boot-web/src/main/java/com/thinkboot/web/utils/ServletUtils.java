@@ -5,6 +5,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.List;
+
 public class ServletUtils {
 
     public static HttpServletRequest getRequest() {
@@ -30,7 +32,8 @@ public class ServletUtils {
         if (StrUtil.isBlank(ip) || "unknown".equalsIgnoreCase(ip)) {
             ip = request.getRemoteAddr();
         }
-        return StrUtil.split(ip, ',').get(0);
+        List<String> ips = StrUtil.split(ip, ',');
+        return ips != null && !ips.isEmpty() ? ips.get(0).trim() : ip;
     }
 
     public static String getUserAgent(HttpServletRequest request) {

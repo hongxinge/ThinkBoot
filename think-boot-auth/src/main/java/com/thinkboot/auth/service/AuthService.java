@@ -1,10 +1,9 @@
 package com.thinkboot.auth.service;
 
-import cn.dev33.satoken.secure.SaSecureUtil;
 import cn.dev33.satoken.stp.SaTokenInfo;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.crypto.digest.BCrypt;
 import com.thinkboot.auth.domain.LoginUser;
-import com.thinkboot.core.constant.RedisConstants;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +12,9 @@ import org.springframework.stereotype.Component;
 public class AuthService {
 
     public String login(Long userId, String username) {
+        if (userId == null) {
+            throw new IllegalArgumentException("userId cannot be null");
+        }
         StpUtil.login(userId);
         SaTokenInfo tokenInfo = StpUtil.getTokenInfo();
         
@@ -36,17 +38,11 @@ public class AuthService {
     }
 
     public Long getUserId() {
-        if (!StpUtil.isLogin()) {
-            return null;
-        }
         LoginUser loginUser = getLoginUser();
         return loginUser != null ? loginUser.getUserId() : null;
     }
 
     public String getUsername() {
-        if (!StpUtil.isLogin()) {
-            return null;
-        }
         LoginUser loginUser = getLoginUser();
         return loginUser != null ? loginUser.getUsername() : null;
     }
@@ -56,10 +52,17 @@ public class AuthService {
     }
 
     public String getToken() {
+        if (!StpUtil.isLogin()) {
+            return null;
+        }
         return StpUtil.getTokenValue();
     }
 
     public String encryptPassword(String password) {
-        return SaSecureUtil.sha256(password);
+        return BCrypt.hashpw(password, BCrypt.gensalt());
+    }
+
+    public boolean checkPassword(String rawPassword, String hashedPassword) {
+        return BCrypt.checkpw(rawPassword, hashedPassword);
     }
 }

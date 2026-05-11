@@ -24,12 +24,24 @@ public class MinioServiceImpl implements StorageService {
 
     @Override
     public StorageResult upload(String bucket, String key, InputStream inputStream, String contentType) {
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Input stream must not be null");
+        }
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
+        validateKey(key);
+
         try {
+            long contentLength = inputStream.available();
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucket)
                             .object(key)
-                            .stream(inputStream, -1, 10485760)
+                            .stream(inputStream, contentLength, 10485760)
                             .contentType(contentType)
                             .build()
             );
@@ -48,6 +60,12 @@ public class MinioServiceImpl implements StorageService {
 
     @Override
     public boolean delete(String bucket, String key) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
         try {
             minioClient.removeObject(
                     RemoveObjectArgs.builder()
@@ -68,6 +86,12 @@ public class MinioServiceImpl implements StorageService {
 
     @Override
     public InputStream download(String bucket, String key) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
         try {
             return minioClient.getObject(
                     GetObjectArgs.builder()
@@ -87,6 +111,12 @@ public class MinioServiceImpl implements StorageService {
 
     @Override
     public String getPresignedUrl(String bucket, String key, int expiresInSeconds) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
         try {
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
@@ -109,5 +139,11 @@ public class MinioServiceImpl implements StorageService {
     @Override
     public String getServiceName() {
         return "MinIO";
+    }
+
+    private void validateKey(String key) {
+        if (key.contains("..") || key.startsWith("/") || key.contains("\\")) {
+            throw new IllegalArgumentException("Invalid key: path traversal is not allowed");
+        }
     }
 }

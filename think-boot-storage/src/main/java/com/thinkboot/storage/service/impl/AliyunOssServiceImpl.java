@@ -1,6 +1,7 @@
 package com.thinkboot.storage.service.impl;
 
 import com.aliyun.oss.OSS;
+import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.thinkboot.storage.config.AliyunOssConfig;
 import com.thinkboot.storage.domain.StorageResult;
@@ -23,6 +24,17 @@ public class AliyunOssServiceImpl implements StorageService {
 
     @Override
     public StorageResult upload(String bucket, String key, InputStream inputStream, String contentType) {
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Input stream must not be null");
+        }
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
+        validateKey(key);
+
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentType(contentType);
         ossClient.putObject(bucket, key, inputStream, metadata);
@@ -38,6 +50,12 @@ public class AliyunOssServiceImpl implements StorageService {
 
     @Override
     public boolean delete(String bucket, String key) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
         ossClient.deleteObject(bucket, key);
         return true;
     }
@@ -49,7 +67,17 @@ public class AliyunOssServiceImpl implements StorageService {
 
     @Override
     public InputStream download(String bucket, String key) {
-        return ossClient.getObject(bucket, key).getObjectContent();
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
+        OSSObject ossObject = ossClient.getObject(bucket, key);
+        if (ossObject == null) {
+            throw new RuntimeException("Object not found: " + key);
+        }
+        return ossObject.getObjectContent();
     }
 
     @Override
@@ -59,6 +87,12 @@ public class AliyunOssServiceImpl implements StorageService {
 
     @Override
     public String getPresignedUrl(String bucket, String key, int expiresInSeconds) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
         java.util.Date expiration = new java.util.Date(System.currentTimeMillis() + expiresInSeconds * 1000L);
         return ossClient.generatePresignedUrl(bucket, key, expiration).toString();
     }
@@ -71,5 +105,11 @@ public class AliyunOssServiceImpl implements StorageService {
     @Override
     public String getServiceName() {
         return "Aliyun OSS";
+    }
+
+    private void validateKey(String key) {
+        if (key.contains("..") || key.startsWith("/") || key.contains("\\")) {
+            throw new IllegalArgumentException("Invalid key: path traversal is not allowed");
+        }
     }
 }

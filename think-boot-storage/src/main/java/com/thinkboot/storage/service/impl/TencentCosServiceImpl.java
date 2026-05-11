@@ -1,6 +1,7 @@
 package com.thinkboot.storage.service.impl;
 
 import com.qcloud.cos.COSClient;
+import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PutObjectRequest;
@@ -27,6 +28,17 @@ public class TencentCosServiceImpl implements StorageService {
 
     @Override
     public StorageResult upload(String bucket, String key, InputStream inputStream, String contentType) {
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Input stream must not be null");
+        }
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
+        validateKey(key);
+
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentType(contentType);
         PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, inputStream, metadata);
@@ -43,6 +55,12 @@ public class TencentCosServiceImpl implements StorageService {
 
     @Override
     public boolean delete(String bucket, String key) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
         cosClient.deleteObject(bucket, key);
         return true;
     }
@@ -54,7 +72,17 @@ public class TencentCosServiceImpl implements StorageService {
 
     @Override
     public InputStream download(String bucket, String key) {
-        return cosClient.getObject(bucket, key).getObjectContent();
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
+        COSObject cosObject = cosClient.getObject(bucket, key);
+        if (cosObject == null) {
+            throw new RuntimeException("Object not found: " + key);
+        }
+        return cosObject.getObjectContent();
     }
 
     @Override
@@ -64,6 +92,12 @@ public class TencentCosServiceImpl implements StorageService {
 
     @Override
     public String getPresignedUrl(String bucket, String key, int expiresInSeconds) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Key must not be null or empty");
+        }
+        if (bucket == null || bucket.isEmpty()) {
+            throw new IllegalArgumentException("Bucket must not be null or empty");
+        }
         Date expiration = new Date(System.currentTimeMillis() + expiresInSeconds * 1000L);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key);
         request.setExpiration(expiration);
@@ -79,5 +113,11 @@ public class TencentCosServiceImpl implements StorageService {
     @Override
     public String getServiceName() {
         return "Tencent COS";
+    }
+
+    private void validateKey(String key) {
+        if (key.contains("..") || key.startsWith("/") || key.contains("\\")) {
+            throw new IllegalArgumentException("Invalid key: path traversal is not allowed");
+        }
     }
 }

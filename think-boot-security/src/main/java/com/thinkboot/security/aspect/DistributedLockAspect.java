@@ -12,19 +12,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-/**
- * 分布式锁切面
- * 基于 Redis SETNX 实现，适用于集群部署场景
- */
 @Aspect
 @Component
 @ConditionalOnBean(RedisTemplate.class)
@@ -50,7 +46,7 @@ public class DistributedLockAspect {
 
     private static final DefaultRedisScript<Long> LOCK_SCRIPT = new DefaultRedisScript<>(LOCK_LUA_SCRIPT, Long.class);
     private static final DefaultRedisScript<Long> UNLOCK_SCRIPT = new DefaultRedisScript<>(UNLOCK_LUA_SCRIPT, Long.class);
-    private static final ExpressionParser SPEL_PARSER = new SpelExpressionParser();
+    private static final SpelExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
     @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
@@ -69,6 +65,7 @@ public class DistributedLockAspect {
 
         boolean acquired = false;
         long endTime = System.currentTimeMillis() + waitTime * 1000L;
+        long sleepMs = 50;
 
         while (System.currentTimeMillis() < endTime) {
             Boolean result = tryAcquireLock(lockKey, lockValue, leaseTime);
@@ -77,7 +74,9 @@ public class DistributedLockAspect {
                 break;
             }
             try {
-                Thread.sleep(100);
+                long jitter = ThreadLocalRandom.current().nextLong(sleepMs / 2, sleepMs * 2);
+                Thread.sleep(Math.min(jitter, endTime - System.currentTimeMillis()));
+                sleepMs = Math.min(sleepMs * 2, 1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new BusinessException("Lock acquisition interrupted");
@@ -107,18 +106,21 @@ public class DistributedLockAspect {
 
     private void releaseLock(String lockKey, String lockValue) {
         try {
-            redisTemplate.execute(
+            Long result = redisTemplate.execute(
                     UNLOCK_SCRIPT,
                     Collections.singletonList(lockKey),
                     lockValue
             );
+            if (result == null || result == 0) {
+                log.warn("Failed to release lock, possible lock expiry: {}", lockKey);
+            }
         } catch (Exception e) {
             log.error("Failed to release distributed lock: {}", lockKey, e);
         }
     }
 
     private String parseKey(ProceedingJoinPoint point, String keyExpression) {
-        StandardEvaluationContext context = new StandardEvaluationContext();
+        SimpleEvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
 
         MethodSignature signature = (MethodSignature) point.getSignature();
         Method method = signature.getMethod();

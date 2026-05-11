@@ -14,8 +14,10 @@ class LoginUserTest {
         assertNull(loginUser.getUserId());
         assertNull(loginUser.getUsername());
         assertNull(loginUser.getNickname());
-        assertNull(loginUser.getPermissions());
-        assertNull(loginUser.getRoles());
+        assertNotNull(loginUser.getPermissions());
+        assertTrue(loginUser.getPermissions().isEmpty());
+        assertNotNull(loginUser.getRoles());
+        assertTrue(loginUser.getRoles().isEmpty());
     }
 
     @Test

@@ -9,8 +9,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class SysOperationLogService extends ServiceImpl<SysOperationLogMapper, SysOperationLog> {
 
-    @Async
-    public void saveLogAsync(SysOperationLog log) {
-        save(log);
+    @Async("logExecutor")
+    public void saveLogAsync(SysOperationLog operationLog) {
+        save(operationLog);
     }
 }

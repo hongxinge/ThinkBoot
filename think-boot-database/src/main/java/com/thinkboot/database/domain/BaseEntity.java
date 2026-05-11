@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 @Data
 public class BaseEntity implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     @TableField(fill = FieldFill.INSERT)
     private String createdBy;
 

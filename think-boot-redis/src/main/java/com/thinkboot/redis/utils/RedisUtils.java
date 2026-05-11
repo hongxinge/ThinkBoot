@@ -1,22 +1,34 @@
 package com.thinkboot.redis.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 @ConditionalOnProperty(prefix = "think-boot.redis", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class RedisUtils {
 
+    private static final Logger log = LoggerFactory.getLogger(RedisUtils.class);
+
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    private void validateKey(String key) {
+        if (key == null || key.isEmpty()) {
+            throw new IllegalArgumentException("Redis key must not be null or empty");
+        }
+    }
 
     public boolean expire(String key, long time) {
         try {
@@ -25,6 +37,7 @@ public class RedisUtils {
             }
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
@@ -37,12 +50,18 @@ public class RedisUtils {
         return redisTemplate.hasKey(key);
     }
 
-    public void delete(String... key) {
-        if (key != null && key.length > 0) {
-            if (key.length == 1) {
-                redisTemplate.delete(key[0]);
+    public void delete(String... keys) {
+        if (keys != null && keys.length > 0) {
+            List<String> validKeys = Arrays.stream(keys)
+                    .filter(k -> k != null && !k.isEmpty())
+                    .collect(Collectors.toList());
+            if (validKeys.isEmpty()) {
+                return;
+            }
+            if (validKeys.size() == 1) {
+                redisTemplate.delete(validKeys.get(0));
             } else {
-                redisTemplate.delete(List.of(key));
+                redisTemplate.delete(validKeys);
             }
         }
     }
@@ -53,38 +72,52 @@ public class RedisUtils {
 
     public boolean set(String key, Object value) {
         try {
+            validateKey(key);
             redisTemplate.opsForValue().set(key, value);
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
 
     public boolean set(String key, Object value, long time) {
         try {
+            validateKey(key);
             if (time > 0) {
                 redisTemplate.opsForValue().set(key, value, time, TimeUnit.SECONDS);
             } else {
-                set(key, value);
+                redisTemplate.opsForValue().set(key, value);
             }
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
 
     public long incr(String key, long delta) {
         if (delta < 0) {
-            throw new RuntimeException("递增因子必须大于0");
+            throw new RuntimeException("Increment delta must be greater than 0");
         }
-        return redisTemplate.opsForValue().increment(key, delta);
+        try {
+            return redisTemplate.opsForValue().increment(key, delta);
+        } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
+            throw e;
+        }
     }
 
     public long decr(String key, long delta) {
         if (delta < 0) {
-            throw new RuntimeException("递减因子必须大于0");
+            throw new RuntimeException("Decrement delta must be greater than 0");
         }
-        return redisTemplate.opsForValue().increment(key, -delta);
+        try {
+            return redisTemplate.opsForValue().increment(key, -delta);
+        } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
+            throw e;
+        }
     }
 
     public Object hGet(String key, String item) {
@@ -97,9 +130,13 @@ public class RedisUtils {
 
     public boolean hmSet(String key, Map<String, Object> map) {
         try {
+            if (map == null || map.isEmpty()) {
+                return false;
+            }
             redisTemplate.opsForHash().putAll(key, map);
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
@@ -109,6 +146,7 @@ public class RedisUtils {
             redisTemplate.opsForHash().put(key, item, value);
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
@@ -121,12 +159,13 @@ public class RedisUtils {
             }
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
 
-    public void hDelete(String key, Object... item) {
-        redisTemplate.opsForHash().delete(key, item);
+    public void hDelete(String key, Object... items) {
+        redisTemplate.opsForHash().delete(key, items);
     }
 
     public boolean hHasKey(String key, String item) {
@@ -166,6 +205,7 @@ public class RedisUtils {
             redisTemplate.opsForList().rightPush(key, value);
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
@@ -178,27 +218,36 @@ public class RedisUtils {
             }
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
 
     public boolean lSetList(String key, List<Object> value) {
         try {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
             redisTemplate.opsForList().rightPushAll(key, value);
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
 
     public boolean lSetList(String key, List<Object> value, long time) {
         try {
+            if (value == null || value.isEmpty()) {
+                return false;
+            }
             redisTemplate.opsForList().rightPushAll(key, value);
             if (time > 0) {
                 expire(key, time);
             }
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
@@ -208,6 +257,7 @@ public class RedisUtils {
             redisTemplate.opsForList().set(key, index, value);
             return true;
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return false;
         }
     }
@@ -216,6 +266,7 @@ public class RedisUtils {
         try {
             return redisTemplate.opsForList().remove(key, count, value);
         } catch (Exception e) {
+            log.error("Redis operation failed for key: {}", key, e);
             return 0;
         }
     }

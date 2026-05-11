@@ -3,6 +3,7 @@ package com.thinkboot.web.result;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.List;
 
 @Data
@@ -22,7 +23,7 @@ public class PageResult<T> implements Serializable {
     }
 
     public PageResult(List<T> records, long total, long current, long size, long pages) {
-        this.records = records;
+        this.records = records != null ? records : Collections.emptyList();
         this.total = total;
         this.current = current;
         this.size = size;
@@ -30,16 +31,16 @@ public class PageResult<T> implements Serializable {
     }
 
     public PageResult(List<T> records, long total) {
-        this.records = records;
+        this.records = records != null ? records : Collections.emptyList();
         this.total = total;
         this.current = 1;
-        this.size = records != null ? records.size() : 0;
+        this.size = this.records.size();
         this.pages = this.size > 0 ? (total + this.size - 1) / this.size : 0;
     }
 
     public static <T> PageResult<T> of(List<T> records, long total, long current, long size) {
         PageResult<T> result = new PageResult<>();
-        result.setRecords(records);
+        result.setRecords(records != null ? records : Collections.emptyList());
         result.setTotal(total);
         result.setCurrent(current);
         result.setSize(size);

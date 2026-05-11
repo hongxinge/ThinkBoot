@@ -5,12 +5,15 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
@@ -110,6 +113,11 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
     }
 
     @Override
+    public BufferedReader getReader() {
+        return new BufferedReader(new StringReader(new String(cachedBody, StandardCharsets.UTF_8)));
+    }
+
+    @Override
     public int getContentLength() {
         return cachedBody.length;
     }
@@ -123,12 +131,29 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
         if (value == null || value.isEmpty()) {
             return value;
         }
-        if (isJsonBody) {
-            value = value.replace("<", "&lt;");
-            value = value.replace(">", "&gt;");
+
+        boolean changed = true;
+        while (changed) {
+            String before = value;
             for (Pattern pattern : XSS_PATTERNS) {
-                value = pattern.matcher(value).replaceAll("");
+                Matcher matcher = pattern.matcher(value);
+                if (matcher.find()) {
+                    value = matcher.replaceAll("");
+                }
             }
+            changed = !value.equals(before);
+        }
+
+        if (isJsonBody) {
+            String cleaned = value;
+            for (Pattern pattern : XSS_PATTERNS) {
+                if (pattern.matcher(cleaned).find()) {
+                    cleaned = cleaned.replace("<", "&lt;");
+                    cleaned = cleaned.replace(">", "&gt;");
+                    break;
+                }
+            }
+            return cleaned;
         } else {
             value = value.replace("&", "&amp;");
             value = value.replace("<", "&lt;");
@@ -138,9 +163,6 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
             value = value.replace("/", "&#x2F;");
             value = value.replace("(", "&#40;");
             value = value.replace(")", "&#41;");
-            for (Pattern pattern : XSS_PATTERNS) {
-                value = pattern.matcher(value).replaceAll("");
-            }
         }
         return value;
     }

@@ -47,6 +47,8 @@ public class RateLimitAspect {
             "    return 1\n" +
             "end";
 
+    private static final DefaultRedisScript<Long> RATE_LIMIT_SCRIPT = new DefaultRedisScript<>(RATE_LIMIT_LUA_SCRIPT, Long.class);
+
     @Around("@annotation(rateLimit)")
     public Object around(ProceedingJoinPoint point, RateLimit rateLimit) throws Throwable {
         if (redisTemplate == null) {
@@ -58,9 +60,8 @@ public class RateLimitAspect {
         int limit = rateLimit.count();
         int window = rateLimit.time();
 
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>(RATE_LIMIT_LUA_SCRIPT, Long.class);
         Long result = redisTemplate.execute(
-                script,
+                RATE_LIMIT_SCRIPT,
                 Collections.singletonList(key),
                 String.valueOf(limit),
                 String.valueOf(window)

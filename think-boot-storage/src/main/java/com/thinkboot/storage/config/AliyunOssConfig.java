@@ -2,6 +2,7 @@ package com.thinkboot.storage.config;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -17,9 +18,22 @@ public class AliyunOssConfig {
     private String accessKeySecret;
     private String bucketName = "default";
 
-    @Bean
+    @Bean(destroyMethod = "shutdown")
     public OSS ossClient() {
         return new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+    }
+
+    @PostConstruct
+    public void validate() {
+        if (endpoint == null || endpoint.isEmpty()) {
+            throw new IllegalStateException("Aliyun OSS endpoint must be configured");
+        }
+        if (accessKeyId == null || accessKeyId.isEmpty()) {
+            throw new IllegalStateException("Aliyun OSS accessKeyId must be configured");
+        }
+        if (accessKeySecret == null || accessKeySecret.isEmpty()) {
+            throw new IllegalStateException("Aliyun OSS accessKeySecret must be configured");
+        }
     }
 
     public String getEndpoint() {

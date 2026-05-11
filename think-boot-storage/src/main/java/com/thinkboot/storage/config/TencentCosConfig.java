@@ -5,6 +5,7 @@ import com.qcloud.cos.ClientConfig;
 import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.region.Region;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -20,11 +21,24 @@ public class TencentCosConfig {
     private String region;
     private String bucketName = "default";
 
-    @Bean
+    @Bean(destroyMethod = "shutdown")
     public COSClient cosClient() {
         COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
         ClientConfig config = new ClientConfig(new Region(region));
         return new COSClient(cred, config);
+    }
+
+    @PostConstruct
+    public void validate() {
+        if (secretId == null || secretId.isEmpty()) {
+            throw new IllegalStateException("Tencent COS secretId must be configured");
+        }
+        if (secretKey == null || secretKey.isEmpty()) {
+            throw new IllegalStateException("Tencent COS secretKey must be configured");
+        }
+        if (region == null || region.isEmpty()) {
+            throw new IllegalStateException("Tencent COS region must be configured");
+        }
     }
 
     public String getSecretId() {

@@ -3,6 +3,7 @@ package com.thinkboot.storage.config;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -18,14 +19,30 @@ public class MinioConfig {
     private String secretKey;
     private String bucketName = "default";
 
-    @Bean
+    @Bean(destroyMethod = "close")
     public MinioClient minioClient() {
-        MinioClient client = MinioClient.builder()
+        return MinioClient.builder()
                 .endpoint(endpoint)
                 .credentials(accessKey, secretKey)
                 .build();
+    }
 
+    @PostConstruct
+    public void validate() {
+        if (endpoint == null || endpoint.isEmpty()) {
+            throw new IllegalStateException("MinIO endpoint must be configured");
+        }
+        if (accessKey == null || accessKey.isEmpty()) {
+            throw new IllegalStateException("MinIO accessKey must be configured");
+        }
+        if (secretKey == null || secretKey.isEmpty()) {
+            throw new IllegalStateException("MinIO secretKey must be configured");
+        }
         try {
+            MinioClient client = MinioClient.builder()
+                    .endpoint(endpoint)
+                    .credentials(accessKey, secretKey)
+                    .build();
             boolean exists = client.bucketExists(
                     BucketExistsArgs.builder().bucket(bucketName).build()
             );
@@ -37,8 +54,6 @@ public class MinioConfig {
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize MinIO bucket: " + bucketName, e);
         }
-
-        return client;
     }
 
     public String getEndpoint() {

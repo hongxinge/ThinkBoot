@@ -58,7 +58,8 @@ public class OperationLogAspect {
         Object result = null;
         try {
             result = point.proceed();
-            long costTime = System.currentTimeMillis() - START_TIME.get();
+            Long startTime = START_TIME.get();
+            long costTime = startTime != null ? System.currentTimeMillis() - startTime : 0;
             log.info("[OperationLog] Success - Title: {}, Description: {}, Cost: {}ms",
                     title, description, costTime);
             
@@ -67,7 +68,8 @@ public class OperationLogAspect {
             
             return result;
         } catch (Throwable e) {
-            long costTime = System.currentTimeMillis() - START_TIME.get();
+            Long startTime = START_TIME.get();
+            long costTime = startTime != null ? System.currentTimeMillis() - startTime : 0;
             log.error("[OperationLog] Error - Title: {}, Description: {}, Error: {}, Cost: {}ms",
                     title, description, e.getMessage(), costTime, e);
             
@@ -98,7 +100,11 @@ public class OperationLogAspect {
             operationLog.setRequestMethod(requestMethod);
             operationLog.setRequestUrl(requestUrl);
             operationLog.setOperatorIp(requestIp);
-            operationLog.setRequestParams(Arrays.toString(args));
+            String requestParams = Arrays.toString(args);
+            if (requestParams != null && requestParams.length() > 2000) {
+                requestParams = requestParams.substring(0, 2000);
+            }
+            operationLog.setRequestParams(requestParams);
             operationLog.setCostTime(costTime);
             operationLog.setStatus(status);
             operationLog.setErrorMsg(errorMsg);

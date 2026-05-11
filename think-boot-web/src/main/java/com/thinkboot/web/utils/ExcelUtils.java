@@ -18,19 +18,21 @@ public class ExcelUtils {
 
     public static <T> List<T> readExcel(MultipartFile file, Class<T> clazz) {
         try (InputStream is = file.getInputStream()) {
-            ExcelReader reader = ExcelUtil.getReader(is);
-            return reader.readAll(clazz);
+            try (ExcelReader reader = ExcelUtil.getReader(is)) {
+                return reader.readAll(clazz);
+            }
         } catch (IOException e) {
-            throw new RuntimeException("读取 Excel 失败", e);
+            throw new RuntimeException("Failed to read Excel", e);
         }
     }
 
     public static List<Map<String, Object>> readExcelAsMap(MultipartFile file) {
         try (InputStream is = file.getInputStream()) {
-            ExcelReader reader = ExcelUtil.getReader(is);
-            return reader.readAll();
+            try (ExcelReader reader = ExcelUtil.getReader(is)) {
+                return reader.readAll();
+            }
         } catch (IOException e) {
-            throw new RuntimeException("读取 Excel 失败", e);
+            throw new RuntimeException("Failed to read Excel", e);
         }
     }
 
@@ -41,12 +43,12 @@ public class ExcelUtils {
             String encodedName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
             response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + encodedName + ".xlsx");
 
-            ExcelWriter writer = ExcelUtil.getWriter(true);
-            writer.write(data, true);
-            writer.flush(os);
-            writer.close();
+            try (ExcelWriter writer = ExcelUtil.getWriter(true)) {
+                writer.write(data, true);
+                writer.flush(os);
+            }
         } catch (IOException e) {
-            throw new RuntimeException("导出 Excel 失败", e);
+            throw new RuntimeException("Failed to export Excel", e);
         }
     }
 
@@ -57,15 +59,15 @@ public class ExcelUtils {
             String encodedName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
             response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + encodedName + ".xlsx");
 
-            ExcelWriter writer = ExcelUtil.getWriter(true);
-            for (int i = 0; i < headers.size(); i++) {
-                writer.addHeaderAlias(String.valueOf(i), headers.get(i));
+            try (ExcelWriter writer = ExcelUtil.getWriter(true)) {
+                for (int i = 0; i < headers.size(); i++) {
+                    writer.addHeaderAlias(String.valueOf(i), headers.get(i));
+                }
+                writer.write(data, true);
+                writer.flush(os);
             }
-            writer.write(data, true);
-            writer.flush(os);
-            writer.close();
         } catch (IOException e) {
-            throw new RuntimeException("导出 Excel 失败", e);
+            throw new RuntimeException("Failed to export Excel", e);
         }
     }
 }
