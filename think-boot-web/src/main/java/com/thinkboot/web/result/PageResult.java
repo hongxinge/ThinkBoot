@@ -32,7 +32,7 @@ public class PageResult<T> implements Serializable {
         this.current = current;
         this.size = size;
         this.pages = pages;
-        this.hasMore = current * size < total;
+        this.hasMore = this.size > 0 && current * size < total;
     }
 
     public PageResult(List<T> records, long total) {
@@ -41,7 +41,7 @@ public class PageResult<T> implements Serializable {
         this.current = 1;
         this.size = this.records.size();
         this.pages = this.size > 0 ? (total + this.size - 1) / this.size : 0;
-        this.hasMore = this.current * this.size < this.total;
+        this.hasMore = this.size > 0 && this.current * this.size < this.total;
     }
 
     public static <T> PageResult<T> of(List<T> records, long total, long current, long size) {
@@ -51,7 +51,7 @@ public class PageResult<T> implements Serializable {
         result.setCurrent(current);
         result.setSize(size);
         result.setPages(size > 0 ? (total + size - 1) / size : 0);
-        result.setHasMore(current * size < total);
+        result.setHasMore(size > 0 && current * size < total);
         return result;
     }
 }

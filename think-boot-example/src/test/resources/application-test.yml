@@ -11,3 +11,7 @@ spring:
 
 sa-token:
   is-log: false
+
+think-boot:
+  auth:
+    enabled: true

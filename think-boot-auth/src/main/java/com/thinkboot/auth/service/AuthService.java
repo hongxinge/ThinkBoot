@@ -1,5 +1,6 @@
 package com.thinkboot.auth.service;
 
+import cn.dev33.satoken.session.SaSession;
 import cn.dev33.satoken.stp.SaTokenInfo;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.digest.BCrypt;
@@ -15,26 +16,26 @@ public class AuthService {
         if (userId == null) {
             throw new IllegalArgumentException("userId cannot be null");
         }
-        StpUtil.login(userId);
-        SaTokenInfo tokenInfo = StpUtil.getTokenInfo();
-        
+        saLogin(userId);
+        SaTokenInfo tokenInfo = saGetTokenInfo();
+
         LoginUser loginUser = new LoginUser();
         loginUser.setUserId(userId);
         loginUser.setUsername(username);
-        StpUtil.getSession().set("loginUser", loginUser);
-        
+        saGetSession().set("loginUser", loginUser);
+
         return tokenInfo.getTokenValue();
     }
 
     public void logout() {
-        StpUtil.logout();
+        saLogout();
     }
 
     public LoginUser getLoginUser() {
-        if (!StpUtil.isLogin()) {
+        if (!saIsLogin()) {
             return null;
         }
-        return (LoginUser) StpUtil.getSession().get("loginUser");
+        return (LoginUser) saGetSession().get("loginUser");
     }
 
     public Long getUserId() {
@@ -48,14 +49,14 @@ public class AuthService {
     }
 
     public boolean isLogin() {
-        return StpUtil.isLogin();
+        return saIsLogin();
     }
 
     public String getToken() {
-        if (!StpUtil.isLogin()) {
+        if (!saIsLogin()) {
             return null;
         }
-        return StpUtil.getTokenValue();
+        return saGetTokenValue();
     }
 
     public String encryptPassword(String password) {
@@ -64,5 +65,29 @@ public class AuthService {
 
     public boolean checkPassword(String rawPassword, String hashedPassword) {
         return BCrypt.checkpw(rawPassword, hashedPassword);
+    }
+
+    protected void saLogin(Long userId) {
+        StpUtil.login(userId);
+    }
+
+    protected SaTokenInfo saGetTokenInfo() {
+        return StpUtil.getTokenInfo();
+    }
+
+    protected SaSession saGetSession() {
+        return StpUtil.getSession();
+    }
+
+    protected boolean saIsLogin() {
+        return StpUtil.isLogin();
+    }
+
+    protected String saGetTokenValue() {
+        return StpUtil.getTokenValue();
+    }
+
+    protected void saLogout() {
+        StpUtil.logout();
     }
 }

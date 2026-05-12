@@ -9,16 +9,28 @@ public class AuditMetaObjectHandler implements MetaObjectHandler {
 
     @Override
     public void insertFill(MetaObject metaObject) {
-        this.strictInsertFill(metaObject, "createdTime", LocalDateTime::now, LocalDateTime.class);
-        this.strictInsertFill(metaObject, "updatedTime", LocalDateTime::now, LocalDateTime.class);
-        this.strictInsertFill(metaObject, "createdBy", this::getCurrentUser, String.class);
-        this.strictInsertFill(metaObject, "updatedBy", this::getCurrentUser, String.class);
+        if (metaObject.hasSetter("createdTime")) {
+            this.setFieldValByName("createdTime", LocalDateTime.now(), metaObject);
+        }
+        if (metaObject.hasSetter("updatedTime")) {
+            this.setFieldValByName("updatedTime", LocalDateTime.now(), metaObject);
+        }
+        if (metaObject.hasSetter("createdBy")) {
+            this.setFieldValByName("createdBy", getCurrentUser(), metaObject);
+        }
+        if (metaObject.hasSetter("updatedBy")) {
+            this.setFieldValByName("updatedBy", getCurrentUser(), metaObject);
+        }
     }
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        this.strictUpdateFill(metaObject, "updatedTime", LocalDateTime::now, LocalDateTime.class);
-        this.strictUpdateFill(metaObject, "updatedBy", this::getCurrentUser, String.class);
+        if (metaObject.hasSetter("updatedTime")) {
+            this.setFieldValByName("updatedTime", LocalDateTime.now(), metaObject);
+        }
+        if (metaObject.hasSetter("updatedBy")) {
+            this.setFieldValByName("updatedBy", getCurrentUser(), metaObject);
+        }
     }
 
     protected String getCurrentUser() {

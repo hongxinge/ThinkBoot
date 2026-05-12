@@ -1,19 +1,18 @@
 package com.thinkboot.example;
 
-import com.thinkboot.auth.service.AuthService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 @ActiveProfiles("test")
 class ThinkBootApplicationTest {
 
-    @MockBean
-    private AuthService authService;
-
     @Test
+    @DisplayName("Application context should load successfully")
     void contextLoads() {
     }
 }
