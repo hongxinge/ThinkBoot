@@ -295,27 +295,30 @@ sa-token:
 
 **Sa-Token 集成 Redis**（可选）：
 
-Sa-Token 默认将数据保存在内存中（读写速度最快），但存在以下限制：
+Sa-Token 默认将数据保存在内存中（读写速度最快，避免了序列化/反序列化性能消耗），但存在以下限制：
 - 重启后数据会丢失
 - 无法在分布式环境中共享数据
 
 集成 Redis 可解决上述问题，实现重启数据不丢失、分布式环境多节点会话一致。
 
-**方式 1：Sa-Token 整合 Redis（使用 JDK 默认序列化）**
+**方式 1：Sa-Token 整合 RedisTemplate（推荐，省心省事）**
 
 ```xml
-<!-- Sa-Token 整合 Redis（使用 JDK 默认序列化） -->
+<!-- Sa-Token 整合 RedisTemplate -->
 <dependency>
     <groupId>cn.dev33</groupId>
-    <artifactId>sa-token-redis</artifactId>
+    <artifactId>sa-token-redis-template</artifactId>
     <version>${sa-token.version}</version>
+</dependency>
+
+<!-- 提供 Redis 连接池 -->
+<dependency>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-pool2</artifactId>
 </dependency>
 ```
 
-- 优点：兼容性好
-- 缺点：Session 序列化后基本不可读，对开发者来讲等同于乱码
-
-**方式 2：Sa-Token 整合 Redis（使用 Jackson 序列化，推荐）**
+**方式 2：Sa-Token 整合 Redis（使用 Jackson 序列化）**
 
 ```xml
 <!-- Sa-Token 整合 Redis（使用 Jackson 序列化） -->
@@ -324,18 +327,7 @@ Sa-Token 默认将数据保存在内存中（读写速度最快），但存在�
     <artifactId>sa-token-redis-jackson</artifactId>
     <version>${sa-token.version}</version>
 </dependency>
-```
 
-- 优点：Session 序列化后可读性强，可灵活手动修改
-- 缺点：兼容性稍差
-
-> ThinkBoot 框架默认使用 **方式 2**（Jackson 序列化），这也是 Sa-Token 官方推荐的方式。
-
-**集成 Redis 注意事项**：
-
-1. 无论使用哪种序列化方式，都必须提供 Redis 连接池依赖：
-
-```xml
 <!-- 提供 Redis 连接池 -->
 <dependency>
     <groupId>org.apache.commons</groupId>
@@ -343,7 +335,44 @@ Sa-Token 默认将数据保存在内存中（读写速度最快），但存在�
 </dependency>
 ```
 
-2. 在 `application.yml` 中配置 Redis：
+- 优点：Session 序列化后可读性强，可灵活手动修改
+- 缺点：兼容性稍差
+
+> ThinkBoot 框架默认使用 **方式 2**（Jackson 序列化），如果你只想"省心省事"，推荐使用 **方式 1**（RedisTemplate 方案）。
+
+**自定义序列化方案**（可选）：
+
+框架默认以 JSON 格式存储数据。如需更换序列化方案，可引入以下依赖：
+
+```xml
+<!-- Sa-Token 整合 Fastjson2 -->
+<dependency>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-fastjson2</artifactId>
+    <version>${sa-token.version}</version>
+</dependency>
+
+<!-- Sa-Token 整合 Fastjson -->
+<dependency>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-fastjson</artifactId>
+    <version>${sa-token.version}</version>
+</dependency>
+```
+
+或自定义 String 序列化方案：
+
+```java
+// 设置序列化方案: jdk序列化 (base64编码)
+@PostConstruct
+public void rewriteComponent() {
+    SaManager.setSaSerializerTemplate(new SaSerializerTemplateForJdkUseBase64());
+}
+```
+
+**集成 Redis 注意事项**：
+
+1. **需要配置 Redis 连接信息**：只有项目初始化了正确的 Redis 实例，Sa-Token 才可以使用 Redis 进行数据持久化：
 
 ```yaml
 spring:
@@ -373,9 +402,9 @@ spring:
 
 > **提示**：SpringBoot3.x 使用 `spring.data.redis`，SpringBoot2.x 使用 `spring.redis`。
 
-> **注意**：
-> - 集成 Redis 后，框架自动保存数据，所有上层 API 保持不变
-> - `sa-token-redis-jackson` 版本应与 `sa-token-spring-boot3-starter` 版本一致（ThinkBoot 已默认配置）
+2. **框架自动保存数据**：集成 Redis 只需要引入对应的 pom 依赖即可，框架所有上层 API 保持不变。
+
+3. **集成包版本问题**：`sa-token-redis-template` 版本应与 `sa-token-spring-boot3-starter` 版本一致，否则可能出现兼容性问题。
 
 **使用示例**：
 ```java
