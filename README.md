@@ -250,7 +250,7 @@ public class UserController {
 
 ### think-boot-auth
 
-认证模块，基于 Sa-Token 实现。
+认证模块，基于 Sa-Token 1.45.0 实现。
 
 **包含内容**：
 - 认证配置：`SaTokenConfigure`（支持 Redis 集成）
@@ -527,6 +527,44 @@ SaSessionCustomUtil.getSessionById("goods-10001").set("stock", 100);
 ```
 
 > **注意**：SaSession 与 HttpSession 是**完全不同**的两个对象，请勿混用。使用 Sa-Token 时，请在任何情况下均使用 SaSession。
+
+**Sa-Token 1.45.0 新功能**：
+
+ThinkBoot 已升级到 Sa-Token 1.45.0，新增以下功能：
+
+1. **重复登录处理策略** - 可选择踢人还是拦截
+```java
+// 在 application.yml 中配置
+sa-token:
+    # 当发生重复登录时，是否踢人（true=踢人，false=拦截）
+    # 默认 true，即新登录踢掉旧登录
+    is-concurrent: true
+```
+
+2. **beforeAuth 前置函数** - 在认证之前执行自定义逻辑
+```java
+@Configuration
+public class CustomSaTokenConfig implements WebMvcConfigurer {
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new SaInterceptor(handler -> {
+            SaRouter.match("/**").check(r -> StpUtil.checkLogin());
+        })
+        .setBeforeAuth(handle -> {
+            // 认证之前的自定义逻辑，如记录请求日志
+            System.out.println("请求路径：" + SaHolder.getRequest().getRequestPath());
+        })
+        ).addPathPatterns("/**");
+    }
+}
+```
+
+3. **注销时携带设备 ID** - 精确控制指定设备的注销
+```java
+// 注销指定设备
+StpUtil.logout(userId, "PC");
+StpUtil.logout(userId, "APP");
+```
 
 更多 Sa-Token 功能请参考官方文档：[https://sa-token.cc](https://sa-token.cc)
 
