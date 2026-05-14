@@ -1,19 +1,17 @@
 package com.thinkboot.auth.config;
 
-import cn.dev33.satoken.annotation.SaIgnore;
+import cn.dev33.satoken.context.SaHolder;
+import cn.dev33.satoken.filter.SaServletFilter;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
-import com.thinkboot.auth.annotation.IgnoreAuth;
+import cn.dev33.satoken.util.SaResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @ConditionalOnProperty(prefix = "think-boot.auth", name = "enabled", havingValue = "true", matchIfMissing = false)
@@ -24,7 +22,8 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new ThinkBootSaInterceptor(handle -> {
+        // 注册 Sa-Token 原生拦截器，校验规则为 StpUtil.checkLogin() 登录校验
+        registry.addInterceptor(new SaInterceptor(handle -> {
             SaRouter.match("/**")
                     .notMatch(getAllExcludes())
                     .check(r -> StpUtil.checkLogin());
@@ -56,30 +55,26 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
     }
 
     /**
-     * ThinkBoot 自定义 Sa-Token 拦截器
-     * 同时支持 @IgnoreAuth 和 @SaIgnore 注解，两者等效
+     * Sa-Token 全局过滤器：设置安全响应头 + 全局认证异常处理
+     * 参考官方示例：https://sa-token.cc
      */
-    public static class ThinkBootSaInterceptor extends SaInterceptor {
-
-        public ThinkBootSaInterceptor(cn.dev33.satoken.fun.SaParamFunction<Object> auth) {
-            super(auth);
-        }
-
-        @Override
-        public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-            if (handler instanceof HandlerMethod handlerMethod) {
-                if (hasIgnoreAnnotation(handlerMethod)) {
-                    return true;
-                }
-            }
-            return super.preHandle(request, response, handler);
-        }
-
-        private boolean hasIgnoreAnnotation(HandlerMethod handlerMethod) {
-            return handlerMethod.hasMethodAnnotation(IgnoreAuth.class)
-                    || handlerMethod.hasMethodAnnotation(SaIgnore.class)
-                    || handlerMethod.getBeanType().isAnnotationPresent(IgnoreAuth.class)
-                    || handlerMethod.getBeanType().isAnnotationPresent(SaIgnore.class);
-        }
+    @Bean
+    public SaServletFilter getSaServletFilter() {
+        return new SaServletFilter()
+                .addInclude("/**")
+                .setAuth(obj -> {
+                })
+                .setError(e -> {
+                    return SaResult.error(e.getMessage());
+                })
+                .setBeforeAuth(r -> {
+                    // 设置安全响应头
+                    SaHolder.getResponse()
+                            .setServer("ThinkBoot")
+                            .setHeader("X-Frame-Options", "SAMEORIGIN")
+                            .setHeader("X-XSS-Protection", "1; mode=block")
+                            .setHeader("X-Content-Type-Options", "nosniff")
+                            .setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+                });
     }
 }

@@ -253,11 +253,20 @@ public class UserController {
 认证模块，基于 Sa-Token 1.45.0 实现。
 
 **包含内容**：
-- 认证配置：`SaTokenConfigure`（支持 Redis 集成）
-- 拦截器配置：`SaTokenWebMvcConfig`
+- 认证配置：`SaTokenConfigure`（支持注解策略重写 + Redis 集成）
+- 拦截器配置：`SaTokenWebMvcConfig`（原生 SaInterceptor + SaServletFilter）
 - 认证服务：`AuthService`
 - 登录用户：`LoginUser`
 - 忽略认证注解：`@IgnoreAuth`（与 Sa-Token 原生 `@SaIgnore` 等效）
+
+**框架改进（对齐官方 Sa-Token 1.45.0）**：
+
+| 改进项 | 说明 |
+|--------|------|
+| 原生拦截器 | 移除自定义 `ThinkBootSaInterceptor`，使用 Sa-Token 原生 `SaInterceptor` |
+| 安全响应头 | 新增 `SaServletFilter`，自动设置 `X-Frame-Options`、`X-XSS-Protection` 等安全头 |
+| 注解策略重写 | 支持 `@IgnoreAuth` 与 `@SaIgnore` 等效，同时支持 Spring 注解合并 |
+| 全局异常处理 | 通过 `SaServletFilter.setError()` 统一处理认证异常 |
 
 **Sa-Token 配置**：
 
