@@ -292,16 +292,41 @@ Sa-Token 默认将数据保存在内存中（读写速度最快），但存在�
 
 集成 Redis 可解决上述问题，实现重启数据不丢失、分布式环境多节点会话一致。
 
-**1. 添加 Maven 依赖**：
+**方式 1：Sa-Token 整合 Redis（使用 JDK 默认序列化）**
 
 ```xml
-<!-- Sa-Token 整合 RedisTemplate -->
+<!-- Sa-Token 整合 Redis（使用 JDK 默认序列化） -->
 <dependency>
     <groupId>cn.dev33</groupId>
-    <artifactId>sa-token-redis-template</artifactId>
+    <artifactId>sa-token-redis</artifactId>
     <version>${sa-token.version}</version>
 </dependency>
+```
 
+- 优点：兼容性好
+- 缺点：Session 序列化后基本不可读，对开发者来讲等同于乱码
+
+**方式 2：Sa-Token 整合 Redis（使用 Jackson 序列化，推荐）**
+
+```xml
+<!-- Sa-Token 整合 Redis（使用 Jackson 序列化） -->
+<dependency>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-redis-jackson</artifactId>
+    <version>${sa-token.version}</version>
+</dependency>
+```
+
+- 优点：Session 序列化后可读性强，可灵活手动修改
+- 缺点：兼容性稍差
+
+> ThinkBoot 框架默认使用 **方式 2**（Jackson 序列化），这也是 Sa-Token 官方推荐的方式。
+
+**集成 Redis 注意事项**：
+
+1. 无论使用哪种序列化方式，都必须提供 Redis 连接池依赖：
+
+```xml
 <!-- 提供 Redis 连接池 -->
 <dependency>
     <groupId>org.apache.commons</groupId>
@@ -309,7 +334,7 @@ Sa-Token 默认将数据保存在内存中（读写速度最快），但存在�
 </dependency>
 ```
 
-**2. 在 `application.yml` 中配置 Redis**：
+2. 在 `application.yml` 中配置 Redis：
 
 ```yaml
 spring:
@@ -339,30 +364,9 @@ spring:
 
 > **提示**：SpringBoot3.x 使用 `spring.data.redis`，SpringBoot2.x 使用 `spring.redis`。
 
-**3. 自定义序列化方案**（可选）：
-
-框架默认使用 Jackson 作为 JSON 序列化方案。如需更换，可引入以下依赖：
-
-```xml
-<!-- Sa-Token 整合 Fastjson -->
-<dependency>
-    <groupId>cn.dev33</groupId>
-    <artifactId>sa-token-fastjson</artifactId>
-    <version>${sa-token.version}</version>
-</dependency>
-
-<!-- Sa-Token 整合 Fastjson2 -->
-<dependency>
-    <groupId>cn.dev33</groupId>
-    <artifactId>sa-token-fastjson2</artifactId>
-    <version>${sa-token.version}</version>
-</dependency>
-```
-
 > **注意**：
 > - 集成 Redis 后，框架自动保存数据，所有上层 API 保持不变
-> - `sa-token-redis-template` 版本应与 `sa-token-spring-boot3-starter` 版本一致
-> - ThinkBoot 框架已内置 `sa-token-redis-jackson`，默认使用 Jackson 序列化
+> - `sa-token-redis-jackson` 版本应与 `sa-token-spring-boot3-starter` 版本一致（ThinkBoot 已默认配置）
 
 **使用示例**：
 ```java
