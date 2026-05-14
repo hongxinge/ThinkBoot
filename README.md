@@ -286,41 +286,83 @@ sa-token:
 
 **Sa-Token 集成 Redis**（可选）：
 
-Sa-Token 1.38.0 版本通过 `sa-token-redis-jackson` 自动集成 Redis，只需确保项目中引入了 Redis 依赖即可：
+Sa-Token 默认将数据保存在内存中（读写速度最快），但存在以下限制：
+- 重启后数据会丢失
+- 无法在分布式环境中共享数据
+
+集成 Redis 可解决上述问题，实现重启数据不丢失、分布式环境多节点会话一致。
+
+**1. 添加 Maven 依赖**：
 
 ```xml
-<!-- Spring Data Redis -->
+<!-- Sa-Token 整合 RedisTemplate -->
 <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-redis</artifactId>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-redis-template</artifactId>
+    <version>${sa-token.version}</version>
 </dependency>
 
-<!-- Redis 连接池（可选） -->
+<!-- 提供 Redis 连接池 -->
 <dependency>
     <groupId>org.apache.commons</groupId>
     <artifactId>commons-pool2</artifactId>
 </dependency>
 ```
 
-然后在 `application.yml` 中配置 Redis：
+**2. 在 `application.yml` 中配置 Redis**：
 
 ```yaml
 spring:
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
+      # Redis 数据库索引（默认为 0）
       database: 0
+      # Redis 服务器地址
+      host: 127.0.0.1
+      # Redis 服务器连接端口
+      port: 6379
+      # Redis 服务器连接密码（默认为空）
+      password:
+      # 连接超时时间
       timeout: 10s
       lettuce:
         pool:
+          # 连接池最大连接数
           max-active: 200
+          # 连接池最大阻塞等待时间（使用负值表示没有限制）
           max-wait: -1ms
+          # 连接池中的最大空闲连接
           max-idle: 10
+          # 连接池中的最小空闲连接
           min-idle: 0
 ```
 
-> **注意**：Sa-Token 会自动检测 Redis 是否可用，如果检测到 Redis 连接，会自动使用 Redis 存储 Session 数据，无需额外配置。
+> **提示**：SpringBoot3.x 使用 `spring.data.redis`，SpringBoot2.x 使用 `spring.redis`。
+
+**3. 自定义序列化方案**（可选）：
+
+框架默认使用 Jackson 作为 JSON 序列化方案。如需更换，可引入以下依赖：
+
+```xml
+<!-- Sa-Token 整合 Fastjson -->
+<dependency>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-fastjson</artifactId>
+    <version>${sa-token.version}</version>
+</dependency>
+
+<!-- Sa-Token 整合 Fastjson2 -->
+<dependency>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-fastjson2</artifactId>
+    <version>${sa-token.version}</version>
+</dependency>
+```
+
+> **注意**：
+> - 集成 Redis 后，框架自动保存数据，所有上层 API 保持不变
+> - `sa-token-redis-template` 版本应与 `sa-token-spring-boot3-starter` 版本一致
+> - ThinkBoot 框架已内置 `sa-token-redis-jackson`，默认使用 Jackson 序列化
 
 **使用示例**：
 ```java
