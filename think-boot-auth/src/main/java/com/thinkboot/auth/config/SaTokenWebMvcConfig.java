@@ -1,5 +1,6 @@
 package com.thinkboot.auth.config;
 
+import cn.dev33.satoken.annotation.SaIgnore;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
@@ -54,6 +55,10 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
         return allExcludes;
     }
 
+    /**
+     * ThinkBoot 自定义 Sa-Token 拦截器
+     * 同时支持 @IgnoreAuth 和 @SaIgnore 注解，两者等效
+     */
     public static class ThinkBootSaInterceptor extends SaInterceptor {
 
         public ThinkBootSaInterceptor(cn.dev33.satoken.fun.SaParamFunction<Object> auth) {
@@ -63,12 +68,18 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
         @Override
         public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
             if (handler instanceof HandlerMethod handlerMethod) {
-                if (handlerMethod.hasMethodAnnotation(IgnoreAuth.class)
-                        || handlerMethod.getBeanType().isAnnotationPresent(IgnoreAuth.class)) {
+                if (hasIgnoreAnnotation(handlerMethod)) {
                     return true;
                 }
             }
             return super.preHandle(request, response, handler);
+        }
+
+        private boolean hasIgnoreAnnotation(HandlerMethod handlerMethod) {
+            return handlerMethod.hasMethodAnnotation(IgnoreAuth.class)
+                    || handlerMethod.hasMethodAnnotation(SaIgnore.class)
+                    || handlerMethod.getBeanType().isAnnotationPresent(IgnoreAuth.class)
+                    || handlerMethod.getBeanType().isAnnotationPresent(SaIgnore.class);
         }
     }
 }

@@ -253,11 +253,83 @@ public class UserController {
 认证模块，基于 Sa-Token 实现。
 
 **包含内容**：
-- 认证配置：`SaTokenConfigure`
+- 认证配置：`SaTokenConfigure`（支持 Redis 集成）
 - 拦截器配置：`SaTokenWebMvcConfig`
 - 认证服务：`AuthService`
 - 登录用户：`LoginUser`
-- 忽略认证注解：`@IgnoreAuth`
+- 忽略认证注解：`@IgnoreAuth`（与 Sa-Token 原生 `@SaIgnore` 等效）
+
+**Sa-Token 配置**：
+
+ThinkBoot 完整支持 Sa-Token 的所有配置项，在 `application.yml` 中配置即可：
+
+```yaml
+# ==========================================
+# Sa-Token 配置（文档：https://sa-token.cc）
+# ==========================================
+sa-token:
+    # token 名称（同时也是 cookie 名称，建议前端在 Header 中传递此字段）
+    token-name: Authorization
+    # token 有效期（单位：秒）默认30天，-1 代表永久有效
+    timeout: 2592000
+    # token 最低活跃频率（单位：秒），默认-1 代表不限制，永不冻结
+    active-timeout: -1
+    # 是否允许同一账号多地同时登录（为 true 时允许一起登录，为 false 时新登录挤掉旧登录）
+    is-concurrent: true
+    # 在多人登录同一账号时，是否共用一个 token（为 true 时所有登录共用一个 token，为 false 时每次登录新建一个 token）
+    is-share: false
+    # token 风格（uuid、simple-uuid、random-32、random-64、random-128、tik）
+    token-style: uuid
+    # 是否输出操作日志
+    is-log: false
+```
+
+**Sa-Token 集成 Redis**（可选）：
+
+1. 在项目中添加依赖：
+
+```xml
+<!-- Sa-Token 整合 RedisTemplate -->
+<dependency>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-redis-template</artifactId>
+</dependency>
+
+<!-- 提供 Redis 连接池 -->
+<dependency>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-pool2</artifactId>
+</dependency>
+
+<!-- Sa-Token 整合 Fastjson2（推荐） -->
+<dependency>
+    <groupId>cn.dev33</groupId>
+    <artifactId>sa-token-fastjson2</artifactId>
+</dependency>
+```
+
+2. 在 `application.yml` 中启用：
+
+```yaml
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      timeout: 10s
+      lettuce:
+        pool:
+          max-active: 200
+          max-wait: -1ms
+          max-idle: 10
+          min-idle: 0
+
+think-boot:
+  auth:
+    enabled: true
+    use-redis: true  # 启用 Redis 存储 Sa-Token 数据
+```
 
 **使用示例**：
 ```java
@@ -304,7 +376,20 @@ public class AuthController {
 }
 ```
 
-方式二：在 Controller 类上标注（整个类跳过认证）
+方式二：使用 Sa-Token 原生 `@SaIgnore` 注解（与 `@IgnoreAuth` 等效）
+```java
+@RestController
+public class AuthController {
+    
+    @SaIgnore
+    @PostMapping("/login")
+    public R<String> login(@RequestParam String username, @RequestParam String password) {
+        return R.ok("token");
+    }
+}
+```
+
+方式三：在 Controller 类上标注（整个类跳过认证）
 ```java
 @IgnoreAuth
 @RestController
@@ -313,7 +398,7 @@ public class PublicController {
 }
 ```
 
-方式三：在配置文件中配置白名单
+方式四：在配置文件中配置白名单
 ```yaml
 think-boot:
   auth:
@@ -323,6 +408,40 @@ think-boot:
       - /register
       - /api/public/**
 ```
+
+**使用 Sa-Token 原生功能**：
+
+ThinkBoot 完全兼容 Sa-Token 的所有原生功能，你可以直接使用：
+
+```java
+// 会话登录
+StpUtil.login(userId);
+
+// 判断是否登录
+StpUtil.isLogin();
+StpUtil.checkLogin();
+
+// 获取登录账号 ID
+StpUtil.getLoginId();
+StpUtil.getLoginIdAsString();
+StpUtil.getLoginIdAsLong();
+
+// 获取 token 信息
+StpUtil.getTokenValue();
+StpUtil.getTokenTimeout();
+
+// 注销登录
+StpUtil.logout();
+StpUtil.logout(userId);        // 强制指定账号下线
+StpUtil.kickout(userId);       // 踢下线
+StpUtil.replaced(userId);      // 顶下线
+
+// 角色权限校验（需要时自行配置）
+@SaCheckRole("admin")
+@SaCheckPermission("user:add")
+```
+
+更多 Sa-Token 功能请参考官方文档：[https://sa-token.cc](https://sa-token.cc)
 
 ### think-boot-database
 
