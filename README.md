@@ -286,29 +286,23 @@ sa-token:
 
 **Sa-Token 集成 Redis**（可选）：
 
-1. 在项目中添加依赖：
+Sa-Token 1.38.0 版本通过 `sa-token-redis-jackson` 自动集成 Redis，只需确保项目中引入了 Redis 依赖即可：
 
 ```xml
-<!-- Sa-Token 整合 RedisTemplate -->
+<!-- Spring Data Redis -->
 <dependency>
-    <groupId>cn.dev33</groupId>
-    <artifactId>sa-token-redis-template</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis</artifactId>
 </dependency>
 
-<!-- 提供 Redis 连接池 -->
+<!-- Redis 连接池（可选） -->
 <dependency>
     <groupId>org.apache.commons</groupId>
     <artifactId>commons-pool2</artifactId>
 </dependency>
-
-<!-- Sa-Token 整合 Fastjson2（推荐） -->
-<dependency>
-    <groupId>cn.dev33</groupId>
-    <artifactId>sa-token-fastjson2</artifactId>
-</dependency>
 ```
 
-2. 在 `application.yml` 中启用：
+然后在 `application.yml` 中配置 Redis：
 
 ```yaml
 spring:
@@ -324,12 +318,9 @@ spring:
           max-wait: -1ms
           max-idle: 10
           min-idle: 0
-
-think-boot:
-  auth:
-    enabled: true
-    use-redis: true  # 启用 Redis 存储 Sa-Token 数据
 ```
+
+> **注意**：Sa-Token 会自动检测 Redis 是否可用，如果检测到 Redis 连接，会自动使用 Redis 存储 Session 数据，无需额外配置。
 
 **使用示例**：
 ```java
@@ -409,6 +400,37 @@ think-boot:
       - /api/public/**
 ```
 
+> **说明**：ThinkBoot 的 `exclude-paths` 配置与 Sa-Token 原生的路由拦截配置**完全兼容**。ThinkBoot 在内部使用 `SaRouter.notMatch()` 实现白名单排除，你也可以直接使用 Sa-Token 原生的 `SaRouter` 进行更复杂的路由鉴权（见下方）。
+
+**使用 Sa-Token 原生路由拦截**（高级用法）：
+
+如果你需要更复杂的路由鉴权规则（如按模块划分不同权限），可以创建自定义配置类覆盖 ThinkBoot 的默认拦截器：
+
+```java
+@Configuration
+public class CustomSaTokenConfig implements WebMvcConfigurer {
+    
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new SaInterceptor(handler -> {
+            // 登录校验 -- 拦截所有路由，排除登录和公开接口
+            SaRouter.match("/**")
+                .notMatch("/login", "/register", "/api/public/**")
+                .check(r -> StpUtil.checkLogin());
+
+            // 权限校验 -- 不同模块校验不同权限
+            SaRouter.match("/admin/**", r -> StpUtil.checkPermission("admin"));
+            SaRouter.match("/user/**", r -> StpUtil.checkPermission("user"));
+            
+            // 角色校验
+            SaRouter.match("/manager/**", r -> StpUtil.checkRoleOr("admin", "manager"));
+        })).addPathPatterns("/**");
+    }
+}
+```
+
+> **提示**：自定义拦截器会覆盖 ThinkBoot 的默认配置，此时 `think-boot.auth.exclude-paths` 配置将不再生效。
+
 **使用 Sa-Token 原生功能**：
 
 ThinkBoot 完全兼容 Sa-Token 的所有原生功能，你可以直接使用：
@@ -440,6 +462,25 @@ StpUtil.replaced(userId);      // 顶下线
 @SaCheckRole("admin")
 @SaCheckPermission("user:add")
 ```
+
+**Sa-Token Session 会话**：
+
+Sa-Token 提供三种类型的 Session，用于缓存高频读写数据：
+
+```java
+// 1. Account-Session（基于账号 ID 的会话）
+StpUtil.getSession().set("user", user);           // 写入数据
+SysUser user = (SysUser) StpUtil.getSession().get("user");  // 读取数据
+
+// 2. Token-Session（基于 Token 的会话）
+StpUtil.getTokenSession().set("data", value);     // 写入数据
+Object data = StpUtil.getTokenSession().get("data"); // 读取数据
+
+// 3. Custom-Session（自定义会话，以特定值作为 SessionId）
+SaSessionCustomUtil.getSessionById("goods-10001").set("stock", 100);
+```
+
+> **注意**：SaSession 与 HttpSession 是**完全不同**的两个对象，请勿混用。使用 Sa-Token 时，请在任何情况下均使用 SaSession。
 
 更多 Sa-Token 功能请参考官方文档：[https://sa-token.cc](https://sa-token.cc)
 
