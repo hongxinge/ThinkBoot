@@ -42,7 +42,7 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
 |------|------|------|
 | 基础框架 | Spring Boot | 3.2.5 |
 | Java 版本 | JDK | 17+ |
-| 认证鉴权 | Sa-Token | 1.38.0 |
+| 认证鉴权 | Sa-Token | 1.45.0 |
 | ORM 框架 | MyBatis-Plus | 3.5.6 |
 | 多数据源 | Dynamic Datasource | 4.3.0 |
 | 缓存 | Spring Data Redis / Spring Cache | - |
