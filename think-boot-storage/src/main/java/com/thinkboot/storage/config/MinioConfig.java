@@ -4,11 +4,18 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * MinIO 存储配置
+ *
+ * 注意：此配置使用 think-boot.storage.minio 前缀，是框架统一存储抽象层的一部分
+ * 框架提供统一的存储接口，屏蔽不同存储服务商的配置差异
+ */
 @Configuration
 @ConfigurationProperties(prefix = "think-boot.storage.minio")
 @ConditionalOnProperty(prefix = "think-boot.storage", name = "type", havingValue = "minio")
@@ -18,6 +25,9 @@ public class MinioConfig {
     private String accessKey;
     private String secretKey;
     private String bucketName = "default";
+
+    @Autowired
+    private MinioClient minioClient;
 
     @Bean(destroyMethod = "close")
     public MinioClient minioClient() {
@@ -39,15 +49,12 @@ public class MinioConfig {
             throw new IllegalStateException("MinIO secretKey must be configured");
         }
         try {
-            MinioClient client = MinioClient.builder()
-                    .endpoint(endpoint)
-                    .credentials(accessKey, secretKey)
-                    .build();
-            boolean exists = client.bucketExists(
+            // 复用已创建的 minioClient Bean，避免重复创建实例
+            boolean exists = minioClient.bucketExists(
                     BucketExistsArgs.builder().bucket(bucketName).build()
             );
             if (!exists) {
-                client.makeBucket(
+                minioClient.makeBucket(
                         MakeBucketArgs.builder().bucket(bucketName).build()
                 );
             }

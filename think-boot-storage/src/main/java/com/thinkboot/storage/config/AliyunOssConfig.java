@@ -8,6 +8,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * 阿里云 OSS 存储配置
+ *
+ * 注意：此配置使用 think-boot.storage.aliyun 前缀，是框架统一存储抽象层的一部分
+ * 框架提供统一的存储接口，屏蔽不同存储服务商的配置差异
+ */
 @Configuration
 @ConfigurationProperties(prefix = "think-boot.storage.aliyun")
 @ConditionalOnProperty(prefix = "think-boot.storage", name = "type", havingValue = "aliyun")

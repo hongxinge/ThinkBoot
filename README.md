@@ -218,16 +218,18 @@ List<User> users = userConverter.toList(userDTOList);
 
 ### think-boot-web
 
-Web 层模块，提供统一响应、异常处理、跨域配置等。
+Web 层模块，提供统一响应、异常处理等。
 
 **包含内容**：
 - 统一响应：`R<T>` 类
 - 分页响应：`PageResult<T>` 类
 - 全局异常处理：`GlobalExceptionHandler`
-- Jackson 配置：时间格式统一
-- CORS 配置：跨域支持
 - 日志配置：TraceId 追踪
 - Swagger 配置：API 文档
+
+> **注意**：框架已移除自定义 Jackson 和 CORS 配置类。请使用原生配置：
+> - Jackson 日期格式：`spring.jackson.date-format`
+> - CORS 跨域：`spring.web.cors.*`
 
 **使用示例**：
 ```java
@@ -259,14 +261,12 @@ public class UserController {
 - 登录用户：`LoginUser`
 - 忽略认证注解：`@IgnoreAuth`（与 Sa-Token 原生 `@SaIgnore` 等效）
 
-**框架改进（对齐官方 Sa-Token 1.45.0）**：
+**框架配置设计原则**：
 
-| 改进项 | 说明 |
-|--------|------|
-| 原生拦截器 | 移除自定义 `ThinkBootSaInterceptor`，使用 Sa-Token 原生 `SaInterceptor` |
-| 安全响应头 | 新增 `SaServletFilter`，自动设置 `X-Frame-Options`、`X-XSS-Protection` 等安全头 |
-| 注解策略重写 | 支持 `@IgnoreAuth` 与 `@SaIgnore` 等效，同时支持 Spring 注解合并 |
-| 全局异常处理 | 通过 `SaServletFilter.setError()` 统一处理认证异常 |
+| 配置类型 | 来源 | 说明 |
+|----------|------|------|
+| 基础配置 | `sa-token.*` | Sa-Token 原生配置，开发者可直接参考官方文档 |
+| 增强配置 | `think-boot.auth.exclude-paths` | 框架增强功能，方便开发者快速配置白名单 |
 
 **Sa-Token 配置**：
 
@@ -301,7 +301,9 @@ Sa-Token 默认将数据保存在内存中（读写速度最快，避免了序�
 
 集成 Redis 可解决上述问题，实现重启数据不丢失、分布式环境多节点会话一致。
 
-**方式 1：Sa-Token 整合 RedisTemplate（推荐，省心省事）**
+**方式 1：Sa-Token 整合 RedisTemplate（官方推荐，省心省事）**
+
+> 如果你只想“省心省事”，我们推荐直接使用此方案，而不必进行过多研究。
 
 ```xml
 <!-- Sa-Token 整合 RedisTemplate -->
@@ -338,7 +340,7 @@ Sa-Token 默认将数据保存在内存中（读写速度最快，避免了序�
 - 优点：Session 序列化后可读性强，可灵活手动修改
 - 缺点：兼容性稍差
 
-> ThinkBoot 框架默认使用 **方式 2**（Jackson 序列化），如果你只想"省心省事"，推荐使用 **方式 1**（RedisTemplate 方案）。
+> ThinkBoot 框架默认提供 **方式 2**（Jackson 序列化）作为可选依赖，但如果你希望使用最省心的方案，建议改为引入 **方式 1**（RedisTemplate）。
 
 **自定义序列化方案**（可选）：
 
@@ -349,13 +351,6 @@ Sa-Token 默认将数据保存在内存中（读写速度最快，避免了序�
 <dependency>
     <groupId>cn.dev33</groupId>
     <artifactId>sa-token-fastjson2</artifactId>
-    <version>${sa-token.version}</version>
-</dependency>
-
-<!-- Sa-Token 整合 Fastjson -->
-<dependency>
-    <groupId>cn.dev33</groupId>
-    <artifactId>sa-token-fastjson</artifactId>
     <version>${sa-token.version}</version>
 </dependency>
 ```
@@ -372,39 +367,11 @@ public void rewriteComponent() {
 
 **集成 Redis 注意事项**：
 
-1. **需要配置 Redis 连接信息**：只有项目初始化了正确的 Redis 实例，Sa-Token 才可以使用 Redis 进行数据持久化：
+1. **需要配置 Redis 连接信息**：只有项目初始化了正确的 Redis 实例，Sa-Token 才可以使用 Redis 进行数据持久化。
 
-```yaml
-spring:
-  data:
-    redis:
-      # Redis 数据库索引（默认为 0）
-      database: 0
-      # Redis 服务器地址
-      host: 127.0.0.1
-      # Redis 服务器连接端口
-      port: 6379
-      # Redis 服务器连接密码（默认为空）
-      password:
-      # 连接超时时间
-      timeout: 10s
-      lettuce:
-        pool:
-          # 连接池最大连接数
-          max-active: 200
-          # 连接池最大阻塞等待时间（使用负值表示没有限制）
-          max-wait: -1ms
-          # 连接池中的最大空闲连接
-          max-idle: 10
-          # 连接池中的最小空闲连接
-          min-idle: 0
-```
+2. **框架自动保存数据**：集成 Redis 只需要引入对应的 pom 依赖即可，框架所有上层 API 保持不变，不需要手动保存。
 
-> **提示**：SpringBoot3.x 使用 `spring.data.redis`，SpringBoot2.x 使用 `spring.redis`。
-
-2. **框架自动保存数据**：集成 Redis 只需要引入对应的 pom 依赖即可，框架所有上层 API 保持不变。
-
-3. **集成包版本问题**：`sa-token-redis-template` 版本应与 `sa-token-spring-boot3-starter` 版本一致，否则可能出现兼容性问题。
+3. **集成包版本问题**：Sa-Token-Redis 集成包的版本尽量与 Sa-Token-Starter 集成包的版本一致（ThinkBoot 已通过 `${sa-token.version}` 统一管理），否则可能出现兼容性问题。
 
 **使用示例**：
 ```java
@@ -473,16 +440,17 @@ public class PublicController {
 }
 ```
 
-方式四：在配置文件中配置白名单
+方式四：在配置文件中配置白名单（框架增强功能）
 ```yaml
 think-boot:
   auth:
-    enabled: true
     exclude-paths:
       - /login
       - /register
       - /api/public/**
 ```
+
+> **说明**：Sa-Token 原生未提供 YAML 白名单配置方式。ThinkBoot 封装了 `think-boot.auth.exclude-paths` 增强配置，方便开发者快速排除接口，无需编写代码。如需更复杂的路由鉴权规则，可直接使用 Sa-Token 原生的 `SaRouter`（见下方）。
 
 > **说明**：ThinkBoot 的 `exclude-paths` 配置与 Sa-Token 原生的路由拦截配置**完全兼容**。ThinkBoot 在内部使用 `SaRouter.notMatch()` 实现白名单排除，你也可以直接使用 Sa-Token 原生的 `SaRouter` 进行更复杂的路由鉴权（见下方）。
 
@@ -614,6 +582,18 @@ StpUtil.logout(userId, "APP");
 - MyBatis-Plus 配置：分页、乐观锁、防全表更新
 - 实体基类：`BaseEntity`（自动填充创建/更新时间）
 - 分页查询：`PageQuery`
+
+**框架增强配置**：
+
+ThinkBoot 暴露了分页参数配置项，方便开发者调整：
+
+```yaml
+think-boot:
+  database:
+    pagination:
+      max-limit: 500           # 分页最大限制（默认 500）
+      overflow: true           # 超出限制后是否溢出（默认 true）
+```
 
 **使用示例**：
 ```java
@@ -788,8 +768,10 @@ public class CodeGenerator {
 Redis 缓存模块。
 
 **包含内容**：
-- Redis 配置：JSON 序列化
+- Redis 配置：JSON 序列化（使用 RedisTemplateCustomizer 定制原生 RedisTemplate）
 - 工具类：`RedisUtils`
+
+> **设计说明**：框架使用 `RedisTemplateCustomizer` 定制原生 RedisTemplate，而非完全替换。这样开发者仍可通过 `spring.data.redis.*` 原生配置项自定义连接等参数。
 
 **使用示例**：
 ```java
@@ -817,6 +799,21 @@ redisUtils.delete("key");
 - Redis CacheManager 配置
 - Jackson2JsonRedisSerializer 序列化
 - 多缓存配置：default（1小时）、short（10分钟）、long（24小时）
+
+**框架增强配置**：
+
+ThinkBoot 暴露了缓存 TTL 配置项，方便开发者调整：
+
+```yaml
+think-boot:
+  cache:
+    ttl:
+      default-hours: 1         # 默认缓存时间（小时）
+      short-minutes: 10        # 短期缓存时间（分钟）
+      long-hours: 24           # 长期缓存时间（小时）
+```
+
+> **安全说明**：框架使用 `BasicPolymorphicTypeValidator` 替代不安全的 `LaissezFaireSubTypeValidator`，提升反序列化安全性。
 
 **使用示例**：
 ```java
@@ -1099,24 +1096,105 @@ public R<Void> delete(@PathVariable String key) {
 
 ## 配置说明
 
+### 框架配置设计原则
+
+ThinkBoot 遵循 **"使用原生配置，仅在原生不提供时才增强"** 的设计原则：
+
+| 配置类型 | 来源 | 说明 |
+|----------|------|------|
+| **原生配置** | `spring.*`、`sa-token.*`、`mybatis-plus.*` 等 | 直接使用 Spring Boot 或第三方框架的原生配置前缀，开发者可参考官方文档 |
+| **框架增强配置** | `think-boot.*` | 仅在原生未提供时才封装，如 `think-boot.auth.exclude-paths` 白名单配置 |
+
+### 原生配置使用指南
+
+ThinkBoot 鼓励开发者使用原生配置，以下是常用原生配置示例：
+
+**Spring Boot 原生配置**：
+```yaml
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+  
+  web:
+    cors:
+      allowed-origins: "*"
+      allowed-methods: GET,POST,PUT,DELETE
+      allowed-headers: "*"
+  
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+```
+
+**Sa-Token 原生配置**：
+```yaml
+sa-token:
+  token-name: Authorization
+  timeout: 2592000
+  active-timeout: -1
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+```
+
+**MyBatis-Plus 原生配置**：
+```yaml
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+```
+
 ### 完整配置参考
 
 ```yaml
 think-boot:
   # 认证模块
   auth:
-    enabled: true              # 是否启用（默认 false）
-    exclude-paths:             # 排除路径（可选，与 @IgnoreAuth 注解配合使用）
+    exclude-paths:             # 排除路径（框架增强功能，Sa-Token 原生未提供）
       - /login
       - /register
   
   # 数据库模块
   database:
-    enabled: true              # 是否启用（默认 false）
+    pagination:
+      max-limit: 500           # 分页最大限制（默认 500）
+      overflow: true           # 超出限制后是否溢出（默认 true）
   
   # Redis 模块
   redis:
     enabled: false             # 是否启用（默认 false）
+  
+  # 缓存模块
+  cache:
+    ttl:
+      default-hours: 1         # 默认缓存时间（小时）
+      short-minutes: 10        # 短期缓存时间（分钟）
+      long-hours: 24           # 长期缓存时间（小时）
   
   # 对象存储模块
   storage:
@@ -1137,14 +1215,12 @@ think-boot:
       region: ap-guangzhou
       bucket-name: 
   
-  # 跨域配置
-  cors:
-    enabled: true              # 是否启用（默认 true）
-  
   # Swagger 文档
   swagger:
     enabled: false             # 是否启用（默认 false）
 ```
+
+> **注意**：框架已移除 `think-boot.cors.enabled` 配置，请使用原生 `spring.web.cors.*` 配置跨域。
 
 ## 使用示例
 

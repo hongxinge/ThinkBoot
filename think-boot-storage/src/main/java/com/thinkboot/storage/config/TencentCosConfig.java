@@ -11,6 +11,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * 腾讯云 COS 存储配置
+ *
+ * 注意：此配置使用 think-boot.storage.tencent 前缀，是框架统一存储抽象层的一部分
+ * 框架提供统一的存储接口，屏蔽不同存储服务商的配置差异
+ */
 @Configuration
 @ConfigurationProperties(prefix = "think-boot.storage.tencent")
 @ConditionalOnProperty(prefix = "think-boot.storage", name = "type", havingValue = "tencent")

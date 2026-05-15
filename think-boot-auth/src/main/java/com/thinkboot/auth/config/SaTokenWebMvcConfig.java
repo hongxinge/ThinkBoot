@@ -7,16 +7,36 @@ import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Sa-Token 拦截器配置
+ *
+ * 注意：所有 Sa-Token 相关配置（token-name、timeout 等）直接使用 sa-token.* 原生配置项
+ * 框架仅提供 Sa-Token 没有的增强配置（如 exclude-paths 白名单）
+ */
 @Configuration
-@ConditionalOnProperty(prefix = "think-boot.auth", name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnClass(SaInterceptor.class)
 public class SaTokenWebMvcConfig implements WebMvcConfigurer {
 
+    /**
+     * 白名单路径配置（框架增强功能）
+     * Sa-Token 原生未提供 YAML 白名单配置，框架封装以方便开发者使用
+     *
+     * 使用方式：
+     * <pre>
+     * think-boot:
+     *   auth:
+     *     exclude-paths:
+     *       - /login
+     *       - /register
+     *       - /api/public/**
+     * </pre>
+     */
     @Value("${think-boot.auth.exclude-paths:}")
     private String[] configExcludePaths;
 
