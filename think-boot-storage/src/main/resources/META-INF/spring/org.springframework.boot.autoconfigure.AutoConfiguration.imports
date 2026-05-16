@@ -1,3 +1,6 @@
 com.thinkboot.storage.config.MinioConfig
 com.thinkboot.storage.config.AliyunOssConfig
 com.thinkboot.storage.config.TencentCosConfig
+com.thinkboot.storage.service.impl.MinioServiceImpl
+com.thinkboot.storage.service.impl.AliyunOssServiceImpl
+com.thinkboot.storage.service.impl.TencentCosServiceImpl

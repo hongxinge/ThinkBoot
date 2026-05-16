@@ -88,8 +88,6 @@ think-boot:
     enabled: false
   storage:
     enabled: false
-  cors:
-    enabled: true
   swagger:
     enabled: true
 

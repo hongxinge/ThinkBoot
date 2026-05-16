@@ -9,6 +9,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * MyBatis-Plus 配置
+ *
+ * 注意：框架不提供 @MapperScan 配置，开发者需在启动类自行配置扫描路径
+ * 框架仅提供开箱即用的分页/乐观锁/防全表更新拦截器组合
+ * 分页参数可通过 think-boot.database.pagination.* 配置
+ */
 @Configuration
 @ConfigurationProperties(prefix = "think-boot.database")
 public class MybatisPlusConfig {

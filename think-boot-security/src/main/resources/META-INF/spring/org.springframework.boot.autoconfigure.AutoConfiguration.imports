@@ -1,2 +1,5 @@
 com.thinkboot.security.config.XssAutoConfig
 com.thinkboot.security.config.SecurityAspectConfig
+com.thinkboot.security.aspect.DistributedLockAspect
+com.thinkboot.security.aspect.IdempotentAspect
+com.thinkboot.security.service.IdempotentTokenService

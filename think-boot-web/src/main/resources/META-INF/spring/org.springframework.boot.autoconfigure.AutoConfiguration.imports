@@ -1,7 +1,6 @@
-com.thinkboot.web.config.JacksonConfig
-com.thinkboot.web.config.CorsConfig
 com.thinkboot.web.config.SwaggerConfig
 com.thinkboot.web.config.log.TraceIdConfig
 com.thinkboot.web.handler.GlobalExceptionHandler
 com.thinkboot.web.aspect.OperationLogAspect
 com.thinkboot.web.aspect.RateLimitAspect
+com.thinkboot.web.service.SysOperationLogService

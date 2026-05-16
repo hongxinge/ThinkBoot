@@ -1,2 +1,3 @@
 com.thinkboot.auth.config.SaTokenConfigure
 com.thinkboot.auth.config.SaTokenWebMvcConfig
+com.thinkboot.auth.service.AuthService
