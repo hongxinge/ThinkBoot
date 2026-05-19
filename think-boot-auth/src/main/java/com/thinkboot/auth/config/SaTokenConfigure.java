@@ -1,9 +1,11 @@
 package com.thinkboot.auth.config;
 
 import cn.dev33.satoken.annotation.SaIgnore;
+import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.strategy.SaAnnotationStrategy;
 import com.thinkboot.auth.annotation.IgnoreAuth;
 import jakarta.annotation.PostConstruct;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Component;
  * 参考文档：https://sa-token.cc
  */
 @Component
+@ConditionalOnClass(SaInterceptor.class)
 @ConditionalOnProperty(prefix = "think-boot.auth", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class SaTokenConfigure {
 

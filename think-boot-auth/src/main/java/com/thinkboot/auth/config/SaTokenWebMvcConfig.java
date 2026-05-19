@@ -8,6 +8,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.util.SaResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -21,6 +22,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 @ConditionalOnClass(SaInterceptor.class)
+@ConditionalOnProperty(prefix = "think-boot.auth", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class SaTokenWebMvcConfig implements WebMvcConfigurer {
 
     /**
@@ -40,9 +42,10 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
     @Value("${think-boot.auth.exclude-paths:}")
     private String[] configExcludePaths;
 
+    private volatile String[] cachedExcludes;
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 注册 Sa-Token 原生拦截器，校验规则为 StpUtil.checkLogin() 登录校验
         registry.addInterceptor(new SaInterceptor(handle -> {
             SaRouter.match("/**")
                     .notMatch(getAllExcludes())
@@ -51,6 +54,10 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
     }
 
     private String[] getAllExcludes() {
+        if (cachedExcludes != null) {
+            return cachedExcludes;
+        }
+
         String[] defaultExcludes = {
                 "/swagger-ui/**",
                 "/swagger-ui.html",
@@ -65,12 +72,14 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
         };
 
         if (configExcludePaths == null || configExcludePaths.length == 0) {
+            cachedExcludes = defaultExcludes;
             return defaultExcludes;
         }
 
         String[] allExcludes = new String[defaultExcludes.length + configExcludePaths.length];
         System.arraycopy(defaultExcludes, 0, allExcludes, 0, defaultExcludes.length);
         System.arraycopy(configExcludePaths, 0, allExcludes, defaultExcludes.length, configExcludePaths.length);
+        cachedExcludes = allExcludes;
         return allExcludes;
     }
 

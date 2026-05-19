@@ -28,6 +28,8 @@ public class OperationLogAspect {
 
     private static final ThreadLocal<Long> START_TIME = new ThreadLocal<>();
 
+    private static final String[] SENSITIVE_PARAMS = {"password", "pwd", "secret", "token", "credential", "apiKey"};
+
     @Pointcut("@annotation(com.thinkboot.web.annotation.OperationLog)")
     public void logPointCut() {
     }
@@ -100,7 +102,7 @@ public class OperationLogAspect {
             operationLog.setRequestMethod(requestMethod);
             operationLog.setRequestUrl(requestUrl);
             operationLog.setOperatorIp(requestIp);
-            String requestParams = Arrays.toString(args);
+            String requestParams = filterSensitiveParams(Arrays.toString(args));
             if (requestParams != null && requestParams.length() > 2000) {
                 requestParams = requestParams.substring(0, 2000);
             }
@@ -122,5 +124,16 @@ public class OperationLogAspect {
         } catch (Exception e) {
             log.error("[OperationLog] Failed to save operation log: {}", e.getMessage(), e);
         }
+    }
+
+    private String filterSensitiveParams(String params) {
+        if (params == null) {
+            return null;
+        }
+        String filtered = params;
+        for (String sensitive : SENSITIVE_PARAMS) {
+            filtered = filtered.replaceAll("(?i)(" + sensitive + "=)[^,}\\]]+", "$1******");
+        }
+        return filtered;
     }
 }

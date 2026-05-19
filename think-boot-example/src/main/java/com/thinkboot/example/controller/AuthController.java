@@ -33,20 +33,23 @@ public class AuthController {
             @Parameter(description = "密码", required = true) @RequestParam String password) {
         User user = userService.lambdaQuery()
                 .eq(User::getUsername, username)
-                .eq(User::getPassword, authService.encryptPassword(password))
                 .one();
-        
-        if (user == null) {
+
+        if (user == null || !authService.checkPassword(password, user.getPassword())) {
             return R.fail("用户名或密码错误");
         }
-        
+
+        if (user.getStatus() != null && user.getStatus() == 0) {
+            return R.fail("账号已被禁用");
+        }
+
         String token = authService.login(user.getId(), user.getUsername());
-        
+
         Map<String, String> result = new HashMap<>();
         result.put("token", token);
         result.put("userId", user.getId().toString());
         result.put("username", user.getUsername());
-        
+
         return R.ok(result);
     }
 

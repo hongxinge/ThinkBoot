@@ -95,12 +95,26 @@ public class RateLimitAspect {
                 }
                 break;
             case USER:
-                keyBuilder.append("user");
+                keyBuilder.append("user:").append(getCurrentUserId());
                 break;
             default:
                 keyBuilder.append("default");
         }
 
         return keyBuilder.toString();
+    }
+
+    private String getCurrentUserId() {
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                Object userId = attributes.getRequest().getAttribute("loginUserId");
+                if (userId != null) {
+                    return userId.toString();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return "anonymous";
     }
 }

@@ -45,6 +45,7 @@ public class MinioServiceImpl implements StorageService {
                             .contentType(contentType)
                             .build()
             );
+            inputStream.close();
 
             String url = minioConfig.getEndpoint() + "/" + bucket + "/" + key;
             return new StorageResult(url, key, bucket);
