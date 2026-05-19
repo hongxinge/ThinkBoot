@@ -175,7 +175,17 @@ think-boot:
     enabled: true        # 启用 API 文档
 ```
 
-### 4. 运行项目
+### 4. 初始化数据库
+
+执行示例项目中的 SQL 初始化脚本：
+
+```bash
+mysql -u root -p < think-boot-example/src/main/resources/sql/init.sql
+```
+
+> **说明**：`init.sql` 会创建 `thinkboot` 数据库、`sys_user` 表和 `demo_article` 表，并插入测试数据（用户名：admin/user，密码：123456，使用 BCrypt 加密）。
+
+### 5. 运行项目
 
 ```bash
 # 编译
@@ -224,6 +234,7 @@ Web 层模块，提供统一响应、异常处理等。
 - 统一响应：`R<T>` 类
 - 分页响应：`PageResult<T>` 类
 - 全局异常处理：`GlobalExceptionHandler`
+- Sa-Token 异常处理：`SaTokenExceptionHandler`（自动将认证异常转为 401/403 响应）
 - 日志配置：TraceId 追踪
 - Swagger 配置：API 文档
 
@@ -257,6 +268,7 @@ public class UserController {
 **包含内容**：
 - 认证配置：`SaTokenConfigure`（支持注解策略重写 + Redis 集成）
 - 拦截器配置：`SaTokenWebMvcConfig`（原生 SaInterceptor + SaServletFilter）
+- 认证异常处理：`SaTokenExceptionHandler`（自动将 NotLoginException 转为 401 响应）
 - 认证服务：`AuthService`
 - 登录用户：`LoginUser`
 - 忽略认证注解：`@IgnoreAuth`（与 Sa-Token 原生 `@SaIgnore` 等效）
@@ -383,8 +395,18 @@ public class AuthController {
     
     @PostMapping("/login")
     public R<String> login(@RequestParam String username, @RequestParam String password) {
-        // 验证用户名密码...
-        String token = authService.login(userId, username);
+        // 1. 查询用户
+        User user = userService.lambdaQuery()
+                .eq(User::getUsername, username)
+                .one();
+        
+        // 2. 验证密码（BCrypt）
+        if (user == null || !authService.checkPassword(password, user.getPassword())) {
+            return R.fail("用户名或密码错误");
+        }
+        
+        // 3. 登录并返回 token
+        String token = authService.login(user.getId(), user.getUsername());
         return R.ok(token);
     }
     
@@ -394,6 +416,8 @@ public class AuthController {
     }
 }
 ```
+
+> **密码加密说明**：框架使用 BCrypt 算法加密密码（由 Hutool 提供），注册时使用 `authService.encryptPassword(rawPassword)` 加密，登录时使用 `authService.checkPassword(rawPassword, hashedPassword)` 验证。
 
 **跳过认证的方式**：
 
@@ -627,6 +651,20 @@ public R<PageResult<User>> list(PageQuery query) {
 }
 ```
 
+> **注意**：框架不自动配置 `@MapperScan`，使用者需要自行配置 Mapper 扫描路径：
+> ```java
+> @SpringBootApplication
+> @MapperScan(basePackages = {
+>     "com.yourpackage.mapper",
+>     "com.thinkboot.web.mapper"
+> })
+> public class Application {
+>     public static void main(String[] args) {
+>         SpringApplication.run(Application.class, args);
+>     }
+> }
+> ```
+
 **数据源配置**：
 
 单数据源配置（默认方式，开箱即用）：
@@ -768,10 +806,10 @@ public class CodeGenerator {
 Redis 缓存模块。
 
 **包含内容**：
-- Redis 配置：JSON 序列化（使用 RedisTemplateCustomizer 定制原生 RedisTemplate）
+- Redis 配置：JSON 序列化（使用 `@ConditionalOnMissingBean` 允许开发者覆盖原生 RedisTemplate）
 - 工具类：`RedisUtils`
 
-> **设计说明**：框架使用 `RedisTemplateCustomizer` 定制原生 RedisTemplate，而非完全替换。这样开发者仍可通过 `spring.data.redis.*` 原生配置项自定义连接等参数。
+> **设计说明**：框架创建 JSON 序列化的 RedisTemplate Bean，同时使用 `@ConditionalOnMissingBean` 允许开发者覆盖。开发者仍可通过 `spring.data.redis.*` 原生配置项自定义连接等参数。
 
 **使用示例**：
 ```java
@@ -1378,6 +1416,7 @@ ThinkBoot/
 │       ├── annotation/                  # 注解
 │       ├── config/                      # Sa-Token 配置
 │       ├── domain/                      # 登录用户
+│       ├── handler/                     # 认证异常处理
 │       └── service/                     # 认证服务
 ├── think-boot-database/                 # 数据库模块
 │   └── src/main/java/com/thinkboot/database/

@@ -6,7 +6,7 @@ spring:
   # 单数据源配置（默认启用，直接使用即可）
   # ==========================================
   datasource:
-    url: jdbc:mysql://localhost:3306/thinkboot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://127.0.0.1:3306/thinkboot?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -82,6 +82,10 @@ sa-token:
 think-boot:
   auth:
     enabled: true
+    exclude-paths:
+      - /api/auth/login
+      - /api/auth/register
+      - /api/public/**
   database:
     enabled: true
   redis:

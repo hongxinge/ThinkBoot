@@ -24,10 +24,10 @@ CREATE TABLE `sys_user` (
     UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
--- 插入测试数据 (密码: 123456, SHA256 加密)
+-- 插入测试数据 (密码: 123456, BCrypt 加密)
 INSERT INTO `sys_user` (`id`, `username`, `password`, `nickname`, `email`, `phone`, `status`) VALUES
-(1, 'admin', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', '管理员', 'admin@thinkboot.com', '13800138000', 1),
-(2, 'user', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', '普通用户', 'user@thinkboot.com', '13800138001', 1);
+(1, 'admin', '$2a$10$mMLcvMNGxI8oLypbvvlZT.GWgQCFsH.rPyoVkeJUqmDL40buK28Xa', '管理员', 'admin@thinkboot.com', '13800138000', 1),
+(2, 'user', '$2a$10$mMLcvMNGxI8oLypbvvlZT.GWgQCFsH.rPyoVkeJUqmDL40buK28Xa', '普通用户', 'user@thinkboot.com', '13800138001', 1);
 
 -- 示例业务表
 DROP TABLE IF EXISTS `demo_article`;

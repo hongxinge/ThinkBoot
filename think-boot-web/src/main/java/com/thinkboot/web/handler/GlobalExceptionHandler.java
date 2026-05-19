@@ -68,7 +68,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public R<Void> handleException(Exception e, HttpServletRequest request) {
-        log.error("Unexpected error at {}: ", request.getRequestURI(), e);
+        log.error("Unexpected error at {} [{}]: ", request.getRequestURI(), e.getClass().getName(), e);
+        if (e.getClass().getName().equals("cn.dev33.satoken.exception.NotLoginException")) {
+            return R.fail(401, "未登录，请先登录");
+        }
+        if (e.getClass().getName().equals("cn.dev33.satoken.exception.NotRoleException")) {
+            return R.fail(403, "缺少角色");
+        }
+        if (e.getClass().getName().equals("cn.dev33.satoken.exception.NotPermissionException")) {
+            return R.fail(403, "缺少权限");
+        }
         return R.fail(500, "系统异常，请稍后重试");
     }
 }
