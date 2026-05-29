@@ -6,6 +6,8 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.thinkboot.redis.config.RedisConfig;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cache.CacheManager;
@@ -34,6 +36,7 @@ import java.util.Map;
 @Configuration
 @EnableCaching
 @ConditionalOnBean(RedisTemplate.class)
+@AutoConfigureAfter(RedisConfig.class)
 @ConfigurationProperties(prefix = "think-boot.cache")
 public class CacheConfig {
 
