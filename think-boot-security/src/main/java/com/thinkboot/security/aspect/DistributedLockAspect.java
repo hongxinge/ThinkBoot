@@ -13,7 +13,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.SimpleEvaluationContext;
+import org.springframework.context.expression.MapAccessor;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -31,7 +32,7 @@ public class DistributedLockAspect {
     private static final String LOCK_PREFIX = "thinkboot:lock:";
 
     private static final String LOCK_LUA_SCRIPT =
-            "if redis.call('set', KEYS[1], ARGV[1], 'NX', 'EX', ARGV[2]) then " +
+            "if redis.call('set', KEYS[1], ARGV[1], 'NX', 'EX', tonumber(ARGV[2])) then " +
             "    return 1 " +
             "else " +
             "    return 0 " +
@@ -120,7 +121,8 @@ public class DistributedLockAspect {
     }
 
     private String parseKey(ProceedingJoinPoint point, String keyExpression) {
-        SimpleEvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.addPropertyAccessor(new MapAccessor());
 
         MethodSignature signature = (MethodSignature) point.getSignature();
         Method method = signature.getMethod();
