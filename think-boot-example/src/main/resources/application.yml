@@ -86,11 +86,7 @@ think-boot:
       - /api/auth/login
       - /api/auth/register
       - /api/public/**
-  database:
-    enabled: true
   redis:
-    enabled: false
-  storage:
     enabled: false
   swagger:
     enabled: true

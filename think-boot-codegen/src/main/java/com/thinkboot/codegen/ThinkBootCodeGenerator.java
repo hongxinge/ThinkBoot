@@ -36,7 +36,8 @@ public class ThinkBootCodeGenerator {
     private String moduleName = "";
     private String author = "thinkboot";
     private String outputPath = System.getProperty("user.dir") + "/src/main/java";
-    private boolean enableSwagger = true;
+    private boolean enableSwagger = false;
+    private boolean enableSpringdoc = false;
     private boolean enableLombok = true;
     private boolean enableRestStyle = true;
     private boolean enableEntityFile = true;
@@ -121,6 +122,14 @@ public class ThinkBootCodeGenerator {
      */
     public ThinkBootCodeGenerator enableSwagger(boolean enable) {
         this.enableSwagger = enable;
+        return this;
+    }
+
+    /**
+     * 是否启用 Springdoc（OpenAPI 3）注解，生成 @Schema，配合框架 springdoc 技术栈使用
+     */
+    public ThinkBootCodeGenerator enableSpringdoc(boolean enable) {
+        this.enableSpringdoc = enable;
         return this;
     }
 
@@ -244,6 +253,14 @@ public class ThinkBootCodeGenerator {
                             .outputDir(outputPath)
                             .commentDate("yyyy-MM-dd")
                             .disableOpenDir();
+                    if (enableSwagger) {
+                        // 生成 swagger2 注解（@ApiModel/@ApiModelProperty），需业务项目自行引入依赖
+                        builder.enableSwagger();
+                    }
+                    if (enableSpringdoc) {
+                        // 生成 OpenAPI 3 注解（@Schema），配合 ThinkBoot 的 springdoc 技术栈
+                        builder.enableSpringdoc();
+                    }
                 })
                 .packageConfig(builder -> {
                     builder.parent(packagePath)
@@ -258,7 +275,6 @@ public class ThinkBootCodeGenerator {
                     builder.addInclude(tableNames)
                             .addTablePrefix(ignoreTablePrefix)
                             .entityBuilder()
-                            .enableLombok()
                             .logicDeleteColumnName(useLogicDelete ? logicDeleteField : null)
                             .idType(idType)
                             .enableTableFieldAnnotation()
@@ -266,14 +282,20 @@ public class ThinkBootCodeGenerator {
                             .naming(NamingStrategy.underline_to_camel)
                             .columnNaming(NamingStrategy.underline_to_camel);
 
+                    if (enableLombok) {
+                        builder.entityBuilder().enableLombok();
+                    }
+
                     if (useBaseEntity) {
                         builder.entityBuilder().superClass(parentPackage + ".database.domain." + entityBaseClass)
                                 .addSuperEntityColumns("id", "created_time", "updated_time", "created_by", "updated_by");
                     }
 
                     builder.controllerBuilder()
-                            .enableRestStyle()
                             .enableHyphenStyle();
+                    if (enableRestStyle) {
+                        builder.controllerBuilder().enableRestStyle();
+                    }
 
                     builder.serviceBuilder()
                             .formatServiceFileName("%sService")

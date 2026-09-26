@@ -37,11 +37,14 @@ public class RedisConfig {
         template.setHashKeySerializer(stringSerializer);
 
         // 序列化 Value
+        // 注意：allowIfSubType 为类名前缀匹配（startsWith 语义），
+        // 必须以 "." 结尾，写成通配符形式（如 "com.thinkboot.**"）无法匹配任何类
         BasicPolymorphicTypeValidator typeValidator = BasicPolymorphicTypeValidator.builder()
+                // 声明基类型为 Object 时放行，保证任意业务实体可正常序列化
                 .allowIfBaseType(Object.class)
-                .allowIfSubType("com.thinkboot.**")
-                .allowIfSubType("java.util.**")
-                .allowIfSubType("java.time.**")
+                .allowIfSubType("com.thinkboot.")
+                .allowIfSubType("java.util.")
+                .allowIfSubType("java.time.")
                 .build();
 
         ObjectMapper objectMapper = new ObjectMapper();

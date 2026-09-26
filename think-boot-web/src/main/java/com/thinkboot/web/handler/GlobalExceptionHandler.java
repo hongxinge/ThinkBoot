@@ -1,6 +1,7 @@
 package com.thinkboot.web.handler;
 
 import com.thinkboot.core.exception.BusinessException;
+import com.thinkboot.web.exception.RateLimitException;
 import com.thinkboot.web.result.R;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
@@ -27,6 +28,12 @@ public class GlobalExceptionHandler {
     public R<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
         log.warn("Business exception at {}: {}", request.getRequestURI(), e.getMessage());
         return R.fail(e.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(RateLimitException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public R<Void> handleRateLimitException(RateLimitException e) {
+        return R.fail(429, e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

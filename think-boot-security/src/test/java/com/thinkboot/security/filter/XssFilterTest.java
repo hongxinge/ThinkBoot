@@ -145,10 +145,73 @@ class XssFilterTest {
         assertNotNull(value);
         assertTrue(value.contains("&lt;"), "Should encode < as &lt;");
         assertTrue(value.contains("&gt;"), "Should encode > as &gt;");
-        assertTrue(value.contains("&#40;"), "Should encode ( as &#40;");
-        assertTrue(value.contains("&#41;"), "Should encode ) as &#41;");
+        assertFalse(value.contains("&#40;"), "Should NOT encode ( as &#40; to avoid corrupting plain text");
+        assertFalse(value.contains("&#41;"), "Should NOT encode ) as &#41; to avoid corrupting plain text");
         assertTrue(value.contains("&quot;"), "Should encode \" as &quot;");
         assertTrue(value.contains("&#x27;"), "Should encode ' as &#x27;");
+    }
+
+    @Test
+    @DisplayName("Plain text like 'connection=keep-alive' should not be broken by event-attribute pattern")
+    void plainTextWithEqualsNotBroken() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setContentType("text/plain");
+        request.setMethod("GET");
+        request.setRequestURI("/api/test");
+        request.setParameter("header", "connection=keep-alive");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        MockFilterChain chain = new MockFilterChain();
+        xssFilter.doFilter(request, response, chain);
+
+        XssHttpServletRequestWrapper wrapper = (XssHttpServletRequestWrapper) chain.getCapturedRequest();
+        String value = wrapper.getParameter("header");
+
+        assertNotNull(value);
+        assertTrue(value.contains("connection=keep-alive"), "Normal text should keep 'connection=' intact");
+    }
+
+    @Test
+    @DisplayName("Multipart requests should pass through body stream without caching")
+    void multipartBodyNotCached() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setContentType("multipart/form-data; boundary=----boundary");
+        request.setMethod("POST");
+        request.setRequestURI("/api/upload");
+        byte[] fileContent = new byte[1024 * 1024];
+        request.setContent(fileContent);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        MockFilterChain chain = new MockFilterChain();
+        xssFilter.doFilter(request, response, chain);
+
+        XssHttpServletRequestWrapper wrapper = (XssHttpServletRequestWrapper) chain.getCapturedRequest();
+        byte[] read = wrapper.getInputStream().readAllBytes();
+
+        assertEquals(fileContent.length, read.length, "Multipart body should be passed through unchanged");
+    }
+
+    @Test
+    @DisplayName("JSON body exceeding max size should be passed through without cleaning")
+    void oversizedJsonBodyPassedThrough() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setContentType("application/json");
+        request.setMethod("POST");
+        request.setRequestURI("/api/test");
+        byte[] largeBody = new byte[4 * 1024 * 1024 + 1];
+        request.setContent(largeBody);
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        MockFilterChain chain = new MockFilterChain();
+        xssFilter.doFilter(request, response, chain);
+
+        XssHttpServletRequestWrapper wrapper = (XssHttpServletRequestWrapper) chain.getCapturedRequest();
+
+        assertEquals(largeBody.length, wrapper.getContentLength(),
+                "Oversized body should not be cached and cleaned");
     }
 
     @Test

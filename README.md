@@ -30,7 +30,7 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
 - **模块化设计**：各功能模块独立，按需引入
 - **按需加载**：所有第三方依赖通过条件配置加载，不配置不报错
 - **开箱即用**：零配置或最小配置即可启动
-- **企业级特性**：内置 XSS 防护、接口幂等性、分布式锁、Spring Cache 支持
+- **企业级特性**：内置 XSS 防护、接口幂等性、分布式锁、接口限流、操作日志、Spring Cache 支持
 - **代码生成**：内置代码生成器，一键生成 CRUD 代码
 - **多数据源**：内置动态数据源支持，轻松切换
 - **统一存储**：MinIO/阿里云 OSS/腾讯云 COS 统一接口
@@ -76,7 +76,7 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
 
 ```xml
 <dependencies>
-    <!-- Web 基础模块（统一响应、异常处理、跨域） -->
+    <!-- Web 基础模块（统一响应、异常处理、限流、操作日志） -->
     <dependency>
         <groupId>com.thinkboot</groupId>
         <artifactId>think-boot-web</artifactId>
@@ -158,21 +158,18 @@ mybatis-plus:
 think-boot:
   auth:
     enabled: true        # 启用认证模块
-  database:
-    enabled: true        # 启用数据库模块
   redis:
-    enabled: false       # 启用 Redis 模块
-  storage:
-    type: minio          # 对象存储类型：minio/aliyun/tencent
-    minio:
-      endpoint: http://localhost:9000
-      access-key: minioadmin
-      secret-key: minioadmin
-      bucket-name: default
-  cors:
-    enabled: true        # 启用跨域
+    enabled: false       # 启用 Redis 模块（默认 false）
   swagger:
     enabled: true        # 启用 API 文档
+  # 对象存储（可选，不配置则不加载）
+  # storage:
+  #   type: minio        # 存储类型：minio/aliyun/tencent
+  #   minio:
+  #     endpoint: http://localhost:9000
+  #     access-key: minioadmin
+  #     secret-key: minioadmin
+  #     bucket-name: default
 ```
 
 ### 4. 初始化数据库
@@ -777,7 +774,7 @@ public class CodeGenerator {
 ```
 
 **生成的代码包括**：
-- Entity（实体类）：继承 BaseEntity，包含 Swagger 注解
+- Entity（实体类）：可选继承 BaseEntity，可选生成 Swagger / Springdoc 注解
 - Mapper（数据访问层）：继承 BaseMapper
 - Service（业务逻辑接口）：继承 IService
 - ServiceImpl（业务逻辑实现）：继承 ServiceImpl
@@ -800,6 +797,10 @@ public class CodeGenerator {
 | useBaseEntity | 是否继承 BaseEntity | false |
 | useLogicDelete | 是否启用逻辑删除 | false |
 | idType | 主键类型 | ASSIGN_ID |
+| enableLombok | 是否生成 Lombok 注解 | true |
+| enableSwagger | 是否生成 Swagger2 注解（@ApiModel，需自行引入依赖） | false |
+| enableSpringdoc | 是否生成 OpenAPI 3 注解（@Schema，配合框架 springdoc 技术栈） | false |
+| enableRestStyle | Controller 是否生成 REST 风格注解 | true |
 
 ### think-boot-redis
 
@@ -913,6 +914,11 @@ public class UserService extends ServiceImpl<UserMapper, User> {
 
 XSS 防护会自动排除 Swagger、API Docs 等开发工具路径。
 
+**清洗范围说明**（兼顾安全与业务数据完整性）：
+- 请求参数与 Header：清洗攻击代码，并仅对 HTML 结构核心字符（`& < > " '`）转义，不影响日期、算式等普通文本
+- JSON 请求体：仅清洗 4MB 以内的请求体，超出部分原样透传
+- 文件上传（multipart）：不做请求体缓存清洗，支持大文件上传
+
 #### 接口幂等性
 
 **使用示例**：
@@ -963,6 +969,8 @@ public class OrderController {
 - **自动模式**：基于请求参数的 MD5 值生成幂等 key，适用于参数相同的请求不会重复提交的场景
 - **Token 模式**：前端先调用 `/order/token` 获取 Token，提交时在请求头携带 `X-Idempotent-Token`，适用于严格防重复提交的场景
 
+> **失败重试**：自动模式下，业务执行抛出异常时框架会立即释放幂等标记，客户端可马上重试，无需等待 `time` 秒过期。
+
 #### 分布式锁
 
 **使用示例**：
@@ -998,7 +1006,7 @@ public class InventoryService {
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | key | 锁的 key（支持 SpEL 表达式） | 必填 |
-| waitTime | 等待时间（秒） | 3 |
+| waitTime | 等待时间（秒），0 表示只尝试一次、立即失败 | 3 |
 | leaseTime | 锁自动释放时间（秒） | 10 |
 | message | 提示信息 | "操作过于频繁，请稍后再试" |
 
@@ -1359,6 +1367,8 @@ public class ApiController {
     }
 }
 ```
+
+> **说明**：触发限流时返回 **HTTP 429**（Too Many Requests），响应体为统一格式 `R`（code=429），便于前端与网关按标准语义处理限流响应。
 
 ### 使用操作日志注解
 

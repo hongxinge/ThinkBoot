@@ -68,21 +68,26 @@ public class DistributedLockAspect {
         long endTime = System.currentTimeMillis() + waitTime * 1000L;
         long sleepMs = 50;
 
-        while (System.currentTimeMillis() < endTime) {
+        // 至少尝试获取一次锁（waitTime=0 表示不等待、立即失败，而非不尝试）
+        do {
             Boolean result = tryAcquireLock(lockKey, lockValue, leaseTime);
             if (Boolean.TRUE.equals(result)) {
                 acquired = true;
                 break;
             }
+            long remaining = endTime - System.currentTimeMillis();
+            if (remaining <= 0) {
+                break;
+            }
             try {
                 long jitter = ThreadLocalRandom.current().nextLong(sleepMs / 2, sleepMs * 2);
-                Thread.sleep(Math.min(jitter, endTime - System.currentTimeMillis()));
+                Thread.sleep(Math.min(jitter, remaining));
                 sleepMs = Math.min(sleepMs * 2, 1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new BusinessException("Lock acquisition interrupted");
             }
-        }
+        } while (true);
 
         if (!acquired) {
             throw new BusinessException(distributedLock.message());

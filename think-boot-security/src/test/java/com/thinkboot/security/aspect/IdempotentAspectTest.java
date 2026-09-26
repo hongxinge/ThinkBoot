@@ -8,11 +8,17 @@ import org.aspectj.lang.reflect.SourceLocation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 class IdempotentAspectTest {
 
@@ -173,6 +179,47 @@ class IdempotentAspectTest {
     }
 
     @Test
+    @DisplayName("around should release idempotent key when business fails (non-token mode)")
+    void aroundReleasesKeyWhenBusinessFails() {
+        @SuppressWarnings("unchecked")
+        RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ValueOperations<String, Object> valueOps = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.setIfAbsent(anyString(), any(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        setRedisTemplateField(aspect, redisTemplate);
+
+        TestProceedingJoinPoint joinPoint = new TestProceedingJoinPoint();
+        joinPoint.proceedException = new IllegalStateException("business error");
+
+        assertThrows(IllegalStateException.class,
+                () -> aspect.around(joinPoint, getAnnotation(IdempotentAnnotationHolder.class)));
+
+        // 修复前：业务异常后 key 不释放，需等待 time 秒过期才能重试
+        verify(redisTemplate).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("around should keep idempotent key when business succeeds (non-token mode)")
+    void aroundKeepsKeyWhenBusinessSucceeds() throws Throwable {
+        @SuppressWarnings("unchecked")
+        RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ValueOperations<String, Object> valueOps = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.setIfAbsent(anyString(), any(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        setRedisTemplateField(aspect, redisTemplate);
+
+        TestProceedingJoinPoint joinPoint = new TestProceedingJoinPoint();
+        joinPoint.proceedResult = "test-result";
+
+        Object result = aspect.around(joinPoint, getAnnotation(IdempotentAnnotationHolder.class));
+
+        assertEquals("test-result", result);
+        verify(redisTemplate, never()).delete(anyString());
+    }
+
+    @Test
     @DisplayName("around should skip idempotency check when Redis is null even with useToken=true")
     void aroundSkipsTokenCheckWhenRedisNull() throws Throwable {
         Idempotent annotation = getAnnotation(IdempotentWithTokenHolder.class);
@@ -237,12 +284,16 @@ class IdempotentAspectTest {
 
     static class TestProceedingJoinPoint implements ProceedingJoinPoint {
         Object proceedResult;
+        Throwable proceedException;
         int proceedCount = 0;
         Object[] args;
 
         @Override
         public Object proceed() throws Throwable {
             proceedCount++;
+            if (proceedException != null) {
+                throw proceedException;
+            }
             return proceedResult;
         }
 

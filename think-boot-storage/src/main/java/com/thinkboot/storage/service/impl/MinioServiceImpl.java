@@ -35,23 +35,22 @@ public class MinioServiceImpl implements StorageService {
         }
         validateKey(key);
 
-        try {
-            long contentLength = inputStream.available();
+        try (InputStream stream = inputStream) {
             minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucket)
                             .object(key)
-                            .stream(inputStream, contentLength, 10485760)
+                            // 内容长度未知时必须传 -1：available() 对网络流通常返回 0，
+                            // 会导致上传失败或数据截断；此时由 SDK 按 10MB 分片缓冲上传
+                            .stream(stream, -1, 10485760)
                             .contentType(contentType)
                             .build()
             );
-            inputStream.close();
-
-            String url = minioConfig.getEndpoint() + "/" + bucket + "/" + key;
-            return new StorageResult(url, key, bucket);
         } catch (Exception e) {
             throw new RuntimeException("MinIO upload failed: " + key, e);
         }
+
+        return new StorageResult(buildUrl(bucket, key), key, bucket);
     }
 
     @Override
@@ -140,6 +139,20 @@ public class MinioServiceImpl implements StorageService {
     @Override
     public String getServiceName() {
         return "MinIO";
+    }
+
+    /**
+     * 拼接对象访问 URL，兼容 endpoint 带或不带协议前缀、末尾带斜杠等配置写法
+     */
+    private String buildUrl(String bucket, String key) {
+        String endpoint = minioConfig.getEndpoint() == null ? "" : minioConfig.getEndpoint().trim();
+        if (!endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+            endpoint = "http://" + endpoint;
+        }
+        while (endpoint.endsWith("/")) {
+            endpoint = endpoint.substring(0, endpoint.length() - 1);
+        }
+        return endpoint + "/" + bucket + "/" + key;
     }
 
     private void validateKey(String key) {

@@ -1,15 +1,13 @@
 package com.thinkboot.web.aspect;
 
-import com.thinkboot.core.constant.CommonConstants;
-import com.thinkboot.core.exception.BusinessException;
 import com.thinkboot.web.annotation.RateLimit;
+import com.thinkboot.web.exception.RateLimitException;
 import com.thinkboot.web.utils.ServletUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,8 +16,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.lang.reflect.Method;
-import java.time.Duration;
 import java.util.Collections;
 
 @Slf4j
@@ -68,7 +64,7 @@ public class RateLimitAspect {
         );
 
         if (result != null && result == 0) {
-            throw new BusinessException(rateLimit.message());
+            throw new RateLimitException(rateLimit.message());
         }
 
         return point.proceed();

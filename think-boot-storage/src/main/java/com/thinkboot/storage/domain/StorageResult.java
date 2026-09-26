@@ -2,8 +2,6 @@ package com.thinkboot.storage.domain;
 
 import lombok.Data;
 
-import java.io.InputStream;
-
 @Data
 public class StorageResult {
 

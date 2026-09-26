@@ -39,7 +39,7 @@ public class AliyunOssServiceImpl implements StorageService {
         metadata.setContentType(contentType);
         ossClient.putObject(bucket, key, inputStream, metadata);
 
-        String url = "https://" + bucket + "." + config.getEndpoint() + "/" + key;
+        String url = "https://" + bucket + "." + normalizeEndpoint(config.getEndpoint()) + "/" + key;
         return new StorageResult(url, key, bucket);
     }
 
@@ -105,6 +105,20 @@ public class AliyunOssServiceImpl implements StorageService {
     @Override
     public String getServiceName() {
         return "Aliyun OSS";
+    }
+
+    /**
+     * 归一化 endpoint 为纯域名形式（虚拟主机式 URL 拼接不兼容协议前缀和末尾斜杠）
+     */
+    private String normalizeEndpoint(String endpoint) {
+        if (endpoint == null) {
+            return "";
+        }
+        String normalized = endpoint.trim().replaceFirst("(?i)^https?://", "");
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private void validateKey(String key) {

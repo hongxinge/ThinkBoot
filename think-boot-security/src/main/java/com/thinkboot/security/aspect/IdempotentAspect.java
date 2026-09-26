@@ -70,6 +70,12 @@ public class IdempotentAspect {
 
         try {
             return point.proceed();
+        } catch (Throwable e) {
+            if (!idempotent.useToken()) {
+                // 业务执行异常时释放幂等标记，允许客户端立即重试（否则需等待 time 秒自动过期）
+                redisTemplate.delete(idempotentKey);
+            }
+            throw e;
         } finally {
             if (idempotent.useToken()) {
                 redisTemplate.delete(idempotentKey);

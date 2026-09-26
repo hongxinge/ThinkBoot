@@ -20,10 +20,9 @@
             <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+        <!-- INFO 及以上均落入本文件（WARN 不能只依赖 CONSOLE 输出）；ERROR 额外落入 error 文件 -->
+        <filter class="ch.qos.logback.core.filter.ThresholdFilter">
             <level>INFO</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
         </filter>
     </appender>
 
