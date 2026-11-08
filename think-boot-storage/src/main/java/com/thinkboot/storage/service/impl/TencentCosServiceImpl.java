@@ -61,6 +61,7 @@ public class TencentCosServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         cosClient.deleteObject(bucket, key);
         return true;
     }
@@ -78,6 +79,7 @@ public class TencentCosServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         COSObject cosObject = cosClient.getObject(bucket, key);
         if (cosObject == null) {
             throw new RuntimeException("Object not found: " + key);
@@ -98,6 +100,7 @@ public class TencentCosServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         Date expiration = new Date(System.currentTimeMillis() + expiresInSeconds * 1000L);
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key);
         request.setExpiration(expiration);

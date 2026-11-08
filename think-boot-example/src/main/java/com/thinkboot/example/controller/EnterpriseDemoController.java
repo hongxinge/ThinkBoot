@@ -64,7 +64,7 @@ public class EnterpriseDemoController {
     }
 
     @GetMapping("/cache/{id}")
-    @Cacheable(value = "user", key = "#id")
+    @Cacheable(value = "userView", key = "#id")
     @Operation(summary = "Spring Cache 示例 - 缓存用户信息")
     public R<User> getCachedUser(@PathVariable Long id) {
         User user = userService.getById(id);
@@ -72,7 +72,7 @@ public class EnterpriseDemoController {
     }
 
     @PutMapping("/cache/{id}")
-    @CachePut(value = "user", key = "#id")
+    @CachePut(value = "userView", key = "#id")
     @Operation(summary = "Spring Cache 示例 - 更新用户缓存")
     public R<User> updateCachedUser(@PathVariable Long id, @RequestBody User user) {
         user.setId(id);
@@ -81,7 +81,7 @@ public class EnterpriseDemoController {
     }
 
     @DeleteMapping("/cache/{id}")
-    @CacheEvict(value = "user", key = "#id")
+    @CacheEvict(value = "userView", key = "#id")
     @Operation(summary = "Spring Cache 示例 - 清除用户缓存")
     public R<Void> evictCachedUser(@PathVariable Long id) {
         return R.ok();

@@ -66,6 +66,7 @@ public class MinioServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         try {
             minioClient.removeObject(
                     RemoveObjectArgs.builder()
@@ -92,6 +93,7 @@ public class MinioServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         try {
             return minioClient.getObject(
                     GetObjectArgs.builder()
@@ -117,6 +119,7 @@ public class MinioServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         try {
             return minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()

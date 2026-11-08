@@ -6,23 +6,23 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
- * Redis 配置
- *
- * 注意：使用 @ConditionalOnMissingBean 确保开发者可自定义 RedisTemplate
- * 开发者仍可通过 spring.data.redis.* 原生配置项自定义连接等参数
+ * Redis 配置：默认启用，并排在 Spring Boot 原生 RedisAutoConfiguration 之前，
+ * 确保同名 redisTemplate 由框架提供（String key + JSON value），消除 bean 注册顺序竞争。
+ * 连接参数仍由 spring.data.redis.* 原生配置提供；开发者定义同名 bean 时本类会退让。
  */
-@Configuration
-@ConditionalOnProperty(prefix = "think-boot.redis", name = "enabled", havingValue = "true", matchIfMissing = false)
+@AutoConfiguration(before = RedisAutoConfiguration.class)
+@ConditionalOnProperty(prefix = "think-boot.redis", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class RedisConfig {
 
     @Bean

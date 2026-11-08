@@ -18,9 +18,15 @@
 
 ## 简介
 
-ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 API/客户端服务场景设计。
+ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，**专为 API / 客户端服务场景设计**。
 
-与若依（RuoYi）等重量级框架不同，ThinkBoot **不包含复杂的角色权限体系**，只提供客户端最常用的 Token 认证功能。框架采用模块化设计，所有第三方依赖均可按需启用，无需复杂配置即可开箱即用。
+与若依（RuoYi）等重量级框架不同，ThinkBoot **不包含复杂的角色权限体系**，只提供客户端最常用的 Token 认证功能。
+
+## 核心设计思想
+
+- **定位**：只做**服务端 API 开发框架**，面向客户端 API，**不是管理端 / 后台管理 API 框架**。不引入页面、后台管理、角色权限树等管理端能力。
+- **双目标**：达到**企业级标准**（安全、可靠、响应契约一致、可观测、可回归验证），同时让广大开发者**方便快捷、简单易用**（约定优于配置、最小配置即可启动、模块按需引入）。
+- **取舍优先级**：① 不破坏「客户端 API 框架」边界；② **开箱即用 > 可配置性**——默认值必须真实可用，能力失效必须显式报错或告警，**禁止静默降级**；③ 简单性 > 功能数量；④ 企业级底线（安全、契约一致性、可观测、回归覆盖）不可让位于便利性。
 
 **设计哲学**：让开发者更关注业务逻辑，减少繁琐的配置工作。
 
@@ -28,11 +34,11 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，专为 
 
 - **轻量简洁**：无冗余功能，聚焦 API 服务核心需求
 - **模块化设计**：各功能模块独立，按需引入
-- **按需加载**：所有第三方依赖通过条件配置加载，不配置不报错
-- **开箱即用**：零配置或最小配置即可启动
+- **默认可用**：Redis 增强能力默认装配；依赖缺失时启动显式失败，不静默跳过
+- **开箱即用**：零配置或最小配置即可启动，启动链路纳入测试门禁
 - **企业级特性**：内置 XSS 防护、接口幂等性、分布式锁、接口限流、操作日志、Spring Cache 支持
 - **代码生成**：内置代码生成器，一键生成 CRUD 代码
-- **多数据源**：内置动态数据源支持，轻松切换
+- **多数据源**：可选动态数据源支持（依赖为 optional，需自行引入后启用）
 - **统一存储**：MinIO/阿里云 OSS/腾讯云 COS 统一接口
 - **免费开源**：遵循 MIT 开源协议，可自由商用
 
@@ -159,7 +165,7 @@ think-boot:
   auth:
     enabled: true        # 启用认证模块
   redis:
-    enabled: false       # 启用 Redis 模块（默认 false）
+    enabled: true        # 启用 Redis 模块（默认 true）
   swagger:
     enabled: true        # 启用 API 文档
   # 对象存储（可选，不配置则不加载）
@@ -178,9 +184,10 @@ think-boot:
 
 ```bash
 mysql -u root -p < think-boot-example/src/main/resources/sql/init.sql
+mysql -u root -p thinkboot < think-boot-example/src/main/resources/sql/operation_log.sql
 ```
 
-> **说明**：`init.sql` 会创建 `thinkboot` 数据库、`sys_user` 表和 `demo_article` 表，并插入测试数据（用户名：admin/user，密码：123456，使用 BCrypt 加密）。
+> **说明**：`init.sql` 会创建 `thinkboot` 数据库、`sys_user` 表和 `demo_article` 表，并插入测试数据（用户名：admin/user，密码：123456，使用 BCrypt 加密）；`operation_log.sql` 创建操作日志表 `sys_operation_log`，**使用 `@OperationLog` 时必须执行**。数据库连接支持 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 环境变量覆盖。
 
 ### 5. 运行项目
 
@@ -205,8 +212,8 @@ mvn spring-boot:run
 - 常量定义：`CommonConstants`、`RedisConstants`
 - 枚举：`ResultCode`
 - 异常：`BusinessException`
-- 工具类：`ServletUtils`、`ExcelUtils`
-- 对象转换：`BaseConverter`（MapStruct 接口）
+- 对象转换：`BaseConverter`（泛型转换接口，未强依赖 MapStruct）
+- Web 工具类：`ServletUtils`、`ExcelUtils` 位于 **think-boot-web** 模块，不在 core
 
 **使用示例**：
 ```java
@@ -263,7 +270,7 @@ public class UserController {
 认证模块，基于 Sa-Token 1.45.0 实现。
 
 **包含内容**：
-- 认证配置：`SaTokenConfigure`（支持注解策略重写 + Redis 集成）
+- 认证配置：`SaTokenConfigure`（注解策略重写，使 `@IgnoreAuth` 与 `@SaIgnore` 等效）
 - 拦截器配置：`SaTokenWebMvcConfig`（原生 SaInterceptor + SaServletFilter）
 - 认证异常处理：`SaTokenExceptionHandler`（自动将 NotLoginException 转为 401 响应）
 - 认证服务：`AuthService`
@@ -1013,7 +1020,9 @@ public class InventoryService {
 **SpEL 表达式示例**：
 - `key = "'user:lock:' + #id"` - 基于方法参数
 - `key = "'order:lock:' + #order.id"` - 基于对象属性
-- `key = "'cache:lock:' + #result.data"` - 基于返回值
+- `key = "'inventory:' + #data.productId"` - 基于 Map 参数（配合 `MapAccessor`）
+
+> **注意**：锁 key 在目标方法**执行前**解析，上下文只绑定方法参数名，**不支持 `#result` 等返回值引用**；`waitTime` 必须 ≥ 0、`leaseTime` 必须 > 0，否则直接抛出业务异常。Lua 脚本统一通过 `StringRedisTemplate` 执行，保证脚本参数为裸字符串。
 
 #### 事务管理
 
@@ -1233,7 +1242,7 @@ think-boot:
   
   # Redis 模块
   redis:
-    enabled: false             # 是否启用（默认 false）
+    enabled: true              # 是否启用（默认 true；关闭后需自行提供 RedisTemplate）
   
   # 缓存模块
   cache:
@@ -1426,8 +1435,8 @@ ThinkBoot/
 │       ├── annotation/                  # 注解
 │       ├── config/                      # Sa-Token 配置
 │       ├── domain/                      # 登录用户
-│       ├── handler/                     # 认证异常处理
 │       └── service/                     # 认证服务
+│       # 注：Sa-Token 异常处理 SaTokenExceptionHandler 位于 think-boot-web/handler/
 ├── think-boot-database/                 # 数据库模块
 │   └── src/main/java/com/thinkboot/database/
 │       ├── config/                      # MyBatis-Plus 配置
@@ -1469,21 +1478,21 @@ ThinkBoot 基于 [MIT](LICENSE) 开源协议发布，完全免费，可自由商
 
 ## 质量保障
 
-- **严格测试**：核心模块全部通过单元测试验证，确保无 BUG 后再发布每个版本
-- **高性能**：采用异步日志写入、Redis 连接池优化等最佳实践
+- **分层测试**：核心模块单元测试 + 示例模块真实启动 / 装配契约测试；发布门禁要求 `mvn clean test` 全绿
+- **启动门禁**：默认配置的日志装配、Redis 组件注册、认证与统一响应均纳入自动化测试，避免「测试全绿但应用无法启动」
+- **性能**：操作日志异步写入，Redis 连接池由 Spring Boot 原生配置管理
 - **简单易用**：零配置或最小配置即可启动，无需复杂学习成本
-- **开箱即用**：引入依赖即可享受完整功能
-- **完善文档**：每个模块都有详细的使用示例和配置说明
+- **完善文档**：每个模块都有使用示例和配置说明
 
-> 本框架面向企业级项目，每个版本发布前都经过严格的测试，确保每个功能模块的严密性。
+> 单元测试覆盖各模块的可测逻辑；涉及 Redis / MySQL / 对象存储的集成行为，需要对应中间件可用时才能完整验证。发布前应同时执行构建、测试与真实启动冒烟。
 
 ## 常见问题（FAQ）
 
 ### 1. 不配置某个模块会影响框架启动吗？
 
-**不会！** ThinkBoot 采用 `@ConditionalOnProperty` 条件加载机制，不配置的功能不会加载，不会报错。
+**按需引入模块即可**：未引入的模块不会进入 classpath，其自动配置类不会被加载。
 
-例如：不配置 Redis，框架正常运行，只是限流功能会使用警告日志并跳过检查。
+但**框架能力不做静默降级**：Redis 增强能力（限流 / 幂等 / 分布式锁 / 缓存）默认启用，若已引入 `think-boot-redis` 却缺少可用的 `RedisTemplate`，应用会在启动时显式失败并给出明确原因，而不是「看起来成功、实际无防护」。如需关闭，请显式设置 `think-boot.redis.enabled: false` 并自行提供所需 Bean。
 
 ### 2. 如何跳过认证？
 

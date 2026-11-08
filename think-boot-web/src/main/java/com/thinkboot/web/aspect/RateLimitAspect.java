@@ -1,16 +1,16 @@
 package com.thinkboot.web.aspect;
 
+import com.thinkboot.core.constant.CommonConstants;
 import com.thinkboot.web.annotation.RateLimit;
 import com.thinkboot.web.exception.RateLimitException;
 import com.thinkboot.web.utils.ServletUtils;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -18,14 +18,19 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Collections;
 
-@Slf4j
+/**
+ * 接口限流切面。
+ * Lua 脚本统一通过 StringRedisTemplate 执行，确保 KEYS/ARGV 为裸字符串，
+ * 避免 JSON 序列化器把数字参数包装后导致 Redis 脚本报错。
+ */
 @Aspect
 @Component
-@ConditionalOnBean(RedisTemplate.class)
+@ConditionalOnClass(StringRedisTemplate.class)
 public class RateLimitAspect {
 
-    @Autowired(required = false)
-    private RedisTemplate<String, Object> redisTemplate;
+    /** 脚本执行专用模板：String 序列化，参数为裸字符串。 */
+    @Autowired
+    private StringRedisTemplate scriptRedisTemplate;
 
     private static final String RATE_LIMIT_KEY_PREFIX = "rate_limit:";
 
@@ -43,20 +48,16 @@ public class RateLimitAspect {
             "    return 1\n" +
             "end";
 
-    private static final DefaultRedisScript<Long> RATE_LIMIT_SCRIPT = new DefaultRedisScript<>(RATE_LIMIT_LUA_SCRIPT, Long.class);
+    private static final DefaultRedisScript<Long> RATE_LIMIT_SCRIPT =
+            new DefaultRedisScript<>(RATE_LIMIT_LUA_SCRIPT, Long.class);
 
     @Around("@annotation(rateLimit)")
     public Object around(ProceedingJoinPoint point, RateLimit rateLimit) throws Throwable {
-        if (redisTemplate == null) {
-            log.warn("RateLimit annotation used but Redis is not configured, skipping rate limit check");
-            return point.proceed();
-        }
-
         String key = buildKey(rateLimit);
         int limit = rateLimit.count();
         int window = rateLimit.time();
 
-        Long result = redisTemplate.execute(
+        Long result = scriptRedisTemplate.execute(
                 RATE_LIMIT_SCRIPT,
                 Collections.singletonList(key),
                 String.valueOf(limit),
@@ -66,7 +67,6 @@ public class RateLimitAspect {
         if (result != null && result == 0) {
             throw new RateLimitException(rateLimit.message());
         }
-
         return point.proceed();
     }
 
@@ -76,16 +76,17 @@ public class RateLimitAspect {
         if (!rateLimit.key().isEmpty()) {
             keyBuilder.append(rateLimit.key()).append(":");
         } else {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            ServletRequestAttributes attributes =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
-                HttpServletRequest request = attributes.getRequest();
-                keyBuilder.append(request.getRequestURI()).append(":");
+                keyBuilder.append(attributes.getRequest().getRequestURI()).append(":");
             }
         }
 
         switch (rateLimit.limitType()) {
             case IP:
-                ServletRequestAttributes ipAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                ServletRequestAttributes ipAttributes =
+                        (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
                 if (ipAttributes != null) {
                     keyBuilder.append(ServletUtils.getClientIp(ipAttributes.getRequest()));
                 }
@@ -96,20 +97,27 @@ public class RateLimitAspect {
             default:
                 keyBuilder.append("default");
         }
-
         return keyBuilder.toString();
     }
 
+    /**
+     * 用户维度：优先取业务系统写入的 loginUserId，其次用 token 摘要，
+     * 避免所有登录用户共用一个限流桶。不记录原始 token。
+     */
     private String getCurrentUserId() {
-        try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) {
-                Object userId = attributes.getRequest().getAttribute("loginUserId");
-                if (userId != null) {
-                    return userId.toString();
-                }
-            }
-        } catch (Exception ignored) {
+        ServletRequestAttributes attributes =
+                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return "anonymous";
+        }
+        HttpServletRequest request = attributes.getRequest();
+        Object userId = request.getAttribute("loginUserId");
+        if (userId != null) {
+            return userId.toString();
+        }
+        String token = request.getHeader(CommonConstants.TOKEN_HEADER);
+        if (token != null && !token.isBlank()) {
+            return Integer.toHexString(token.hashCode());
         }
         return "anonymous";
     }

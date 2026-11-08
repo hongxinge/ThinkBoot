@@ -26,9 +26,15 @@ class IdempotentAspectTest {
     private MockHttpServletRequest request;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         aspect = new IdempotentAspect();
-        setRedisTemplateField(aspect, null);
+        RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        ValueOperations<String, Object> valueOps = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.setIfAbsent(anyString(), any(), anyLong(), any(TimeUnit.class))).thenReturn(true);
+        when(redisTemplate.delete(anyString())).thenReturn(true);
+        setRedisTemplateField(aspect, redisTemplate);
         request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.setRequestURI("/api/submit");
@@ -220,29 +226,38 @@ class IdempotentAspectTest {
     }
 
     @Test
-    @DisplayName("around should skip idempotency check when Redis is null even with useToken=true")
-    void aroundSkipsTokenCheckWhenRedisNull() throws Throwable {
-        Idempotent annotation = getAnnotation(IdempotentWithTokenHolder.class);
+    @DisplayName("Token 模式应原子消费令牌并放行一次")
+    @SuppressWarnings("unchecked")
+    void tokenModeConsumesTokenAtomically() throws Throwable {
+        request.addHeader("X-Idempotent-Token", "T-1");
+        RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        when(redisTemplate.delete(anyString())).thenReturn(true);
+        setRedisTemplateField(aspect, redisTemplate);
+
         TestProceedingJoinPoint joinPoint = new TestProceedingJoinPoint();
-        joinPoint.proceedResult = "test-result";
+        joinPoint.proceedResult = "ok";
 
-        Object result = aspect.around(joinPoint, annotation);
+        Object result = aspect.around(joinPoint, getAnnotation(IdempotentWithTokenHolder.class));
 
-        assertEquals("test-result", result);
+        assertEquals("ok", result);
         assertEquals(1, joinPoint.proceedCount);
+        verify(redisTemplate, times(1)).delete(anyString());
     }
 
     @Test
-    @DisplayName("around should proceed when Redis is null and skip idempotent check")
-    void aroundProceedsWhenRedisNull() throws Throwable {
+    @DisplayName("Token 已被消费时应拒绝重复提交")
+    @SuppressWarnings("unchecked")
+    void tokenModeRejectsConsumedToken() throws Throwable {
+        request.addHeader("X-Idempotent-Token", "T-1");
+        RedisTemplate<String, Object> redisTemplate = mock(RedisTemplate.class);
+        when(redisTemplate.delete(anyString())).thenReturn(false);
+        setRedisTemplateField(aspect, redisTemplate);
+
         TestProceedingJoinPoint joinPoint = new TestProceedingJoinPoint();
-        joinPoint.proceedResult = "test-result";
-        Idempotent annotation = getAnnotation(IdempotentAnnotationHolder.class);
 
-        Object result = aspect.around(joinPoint, annotation);
-
-        assertEquals("test-result", result);
-        assertEquals(1, joinPoint.proceedCount);
+        assertThrows(BusinessException.class,
+                () -> aspect.around(joinPoint, getAnnotation(IdempotentWithTokenHolder.class)));
+        assertEquals(0, joinPoint.proceedCount);
     }
 
     @SuppressWarnings("unchecked")

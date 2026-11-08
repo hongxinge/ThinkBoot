@@ -8,6 +8,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -70,6 +71,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public R<Void> handleNotFound(NoResourceFoundException e) {
         return R.fail(404, "接口不存在");
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public R<Void> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
+        log.warn("Malformed request body: {}", e.getMessage());
+        return R.fail(400, "请求体格式错误，请检查 JSON 格式");
     }
 
     @ExceptionHandler(Exception.class)

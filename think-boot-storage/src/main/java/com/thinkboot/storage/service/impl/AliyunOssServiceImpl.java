@@ -56,6 +56,7 @@ public class AliyunOssServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         ossClient.deleteObject(bucket, key);
         return true;
     }
@@ -73,6 +74,7 @@ public class AliyunOssServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         OSSObject ossObject = ossClient.getObject(bucket, key);
         if (ossObject == null) {
             throw new RuntimeException("Object not found: " + key);
@@ -93,6 +95,7 @@ public class AliyunOssServiceImpl implements StorageService {
         if (bucket == null || bucket.isEmpty()) {
             throw new IllegalArgumentException("Bucket must not be null or empty");
         }
+        validateKey(key);
         java.util.Date expiration = new java.util.Date(System.currentTimeMillis() + expiresInSeconds * 1000L);
         return ossClient.generatePresignedUrl(bucket, key, expiration).toString();
     }

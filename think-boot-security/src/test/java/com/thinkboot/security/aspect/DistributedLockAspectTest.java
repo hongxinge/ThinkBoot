@@ -9,30 +9,34 @@ import org.aspectj.lang.reflect.SourceLocation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class DistributedLockAspectTest {
 
     private DistributedLockAspect aspect;
-    private RedisTemplate<String, Object> redisTemplate;
+    private StringRedisTemplate scriptRedisTemplate;
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
     void setUp() {
         aspect = new DistributedLockAspect();
-        redisTemplate = mock(RedisTemplate.class);
-        setRedisTemplateField(aspect, redisTemplate);
+        scriptRedisTemplate = mock(StringRedisTemplate.class);
+        setScriptTemplateField(aspect, scriptRedisTemplate);
     }
 
     @Test
     @DisplayName("waitTime=0 should still attempt to acquire lock once and proceed on success")
     void waitTimeZeroAttemptsOnceAndSucceeds() throws Throwable {
-        when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class))).thenReturn(1L);
+        when(scriptRedisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class))).thenReturn(1L);
 
         TestProceedingJoinPoint joinPoint = newJoinPoint();
         joinPoint.proceedResult = "success";
@@ -42,13 +46,13 @@ class DistributedLockAspectTest {
         assertEquals("success", result);
         assertEquals(1, joinPoint.proceedCount);
         // 加锁一次 + 解锁一次
-        verify(redisTemplate, times(2)).execute(any(RedisScript.class), anyList(), any(Object[].class));
+        verify(scriptRedisTemplate, times(2)).execute(any(RedisScript.class), anyList(), any(Object[].class));
     }
 
     @Test
     @DisplayName("waitTime=0 should attempt once then fail fast when lock not acquired")
     void waitTimeZeroFailsFastAfterOneAttempt() throws Throwable {
-        when(redisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class))).thenReturn(0L);
+        when(scriptRedisTemplate.execute(any(RedisScript.class), anyList(), any(Object[].class))).thenReturn(0L);
 
         TestProceedingJoinPoint joinPoint = newJoinPoint();
 
@@ -56,8 +60,8 @@ class DistributedLockAspectTest {
                 () -> aspect.around(joinPoint, getAnnotation(WaitTimeZeroHolder.class)));
 
         assertEquals(0, joinPoint.proceedCount);
-        // 修复前 waitTime=0 时不做任何获取尝试直接抛异常；修复后应恰好尝试一次
-        verify(redisTemplate, times(1)).execute(any(RedisScript.class), anyList(), any(Object[].class));
+        // waitTime=0 表示不等待，但仍应恰好尝试一次
+        verify(scriptRedisTemplate, times(1)).execute(any(RedisScript.class), anyList(), any(Object[].class));
     }
 
     /**
@@ -72,13 +76,13 @@ class DistributedLockAspectTest {
         return joinPoint;
     }
 
-    private static void setRedisTemplateField(DistributedLockAspect target, Object value) {
+    private static void setScriptTemplateField(DistributedLockAspect target, Object value) {
         try {
-            java.lang.reflect.Field field = DistributedLockAspect.class.getDeclaredField("redisTemplate");
+            java.lang.reflect.Field field = DistributedLockAspect.class.getDeclaredField("scriptRedisTemplate");
             field.setAccessible(true);
             field.set(target, value);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to set redisTemplate field", e);
+            throw new RuntimeException("Failed to set scriptRedisTemplate field", e);
         }
     }
 

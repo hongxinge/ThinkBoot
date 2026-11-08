@@ -71,6 +71,9 @@ Thumbs.db
 logs/
 *.pid
 
+# WorkBuddy 项目数据（分析基线、工作日志等，不纳入版本控制）
+.workbuddy/
+
 # Promotional materials
 promotional/
 

@@ -21,7 +21,7 @@
             <charset>UTF-8</charset>
         </encoder>
         <!-- INFO 及以上均落入本文件（WARN 不能只依赖 CONSOLE 输出）；ERROR 额外落入 error 文件 -->
-        <filter class="ch.qos.logback.core.filter.ThresholdFilter">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
     </appender>

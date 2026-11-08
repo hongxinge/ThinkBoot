@@ -9,22 +9,26 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.context.expression.MapAccessor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.context.expression.MapAccessor;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
+/**
+ * 分布式锁切面。
+ * Lua 脚本统一通过 StringRedisTemplate 执行，保证锁值与超时秒数为裸字符串，
+ * 避免 JSON 序列化器包装参数导致 Redis 报「arguments must be strings or integers」。
+ */
 @Aspect
 @Component
-@ConditionalOnBean(RedisTemplate.class)
+@ConditionalOnClass(StringRedisTemplate.class)
 public class DistributedLockAspect {
 
     private static final Logger log = LoggerFactory.getLogger(DistributedLockAspect.class);
@@ -49,26 +53,28 @@ public class DistributedLockAspect {
     private static final DefaultRedisScript<Long> UNLOCK_SCRIPT = new DefaultRedisScript<>(UNLOCK_LUA_SCRIPT, Long.class);
     private static final SpelExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
-    @Autowired(required = false)
-    private RedisTemplate<String, Object> redisTemplate;
+    /** 脚本执行专用模板：String 序列化，参数为裸字符串。 */
+    @Autowired
+    private StringRedisTemplate scriptRedisTemplate;
 
     @Around("@annotation(distributedLock)")
     public Object around(ProceedingJoinPoint point, DistributedLock distributedLock) throws Throwable {
-        if (redisTemplate == null) {
-            log.warn("DistributedLock annotation used but Redis is not configured, skipping lock check");
-            return point.proceed();
+        int waitTime = distributedLock.waitTime();
+        int leaseTime = distributedLock.leaseTime();
+        if (waitTime < 0) {
+            throw new BusinessException("DistributedLock.waitTime must not be negative");
+        }
+        if (leaseTime <= 0) {
+            throw new BusinessException("DistributedLock.leaseTime must be positive");
         }
 
         String lockKey = LOCK_PREFIX + parseKey(point, distributedLock.key());
-        String lockValue = Thread.currentThread().getId() + "-" + System.currentTimeMillis();
-        int waitTime = distributedLock.waitTime();
-        int leaseTime = distributedLock.leaseTime();
-
+        String lockValue = UUID.randomUUID().toString();
         boolean acquired = false;
         long endTime = System.currentTimeMillis() + waitTime * 1000L;
         long sleepMs = 50;
 
-        // 至少尝试获取一次锁（waitTime=0 表示不等待、立即失败，而非不尝试）
+        // 至少尝试一次（waitTime=0 表示不等待、立即失败，而非不尝试）
         do {
             Boolean result = tryAcquireLock(lockKey, lockValue, leaseTime);
             if (Boolean.TRUE.equals(result)) {
@@ -92,7 +98,6 @@ public class DistributedLockAspect {
         if (!acquired) {
             throw new BusinessException(distributedLock.message());
         }
-
         try {
             return point.proceed();
         } finally {
@@ -101,7 +106,7 @@ public class DistributedLockAspect {
     }
 
     private Boolean tryAcquireLock(String lockKey, String lockValue, int leaseTime) {
-        Long result = redisTemplate.execute(
+        Long result = scriptRedisTemplate.execute(
                 LOCK_SCRIPT,
                 Collections.singletonList(lockKey),
                 lockValue,
@@ -112,7 +117,7 @@ public class DistributedLockAspect {
 
     private void releaseLock(String lockKey, String lockValue) {
         try {
-            Long result = redisTemplate.execute(
+            Long result = scriptRedisTemplate.execute(
                     UNLOCK_SCRIPT,
                     Collections.singletonList(lockKey),
                     lockValue
@@ -130,10 +135,8 @@ public class DistributedLockAspect {
         context.addPropertyAccessor(new MapAccessor());
 
         MethodSignature signature = (MethodSignature) point.getSignature();
-        Method method = signature.getMethod();
         String[] paramNames = signature.getParameterNames();
         Object[] args = point.getArgs();
-
         if (paramNames != null && args != null) {
             for (int i = 0; i < paramNames.length; i++) {
                 context.setVariable(paramNames[i], args[i]);

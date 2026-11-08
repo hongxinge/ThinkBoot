@@ -7,13 +7,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.thinkboot.redis.config.RedisConfig;
-import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheWriter;
@@ -33,10 +33,9 @@ import java.util.Map;
  * 注意：使用 BasicPolymorphicTypeValidator 替代 LaissezFaireSubTypeValidator 提升安全性
  * 提供可配置的 TTL 配置项，避免硬编码
  */
-@Configuration
+@AutoConfiguration(after = {RedisConfig.class, RedisAutoConfiguration.class})
 @EnableCaching
 @ConditionalOnBean(RedisTemplate.class)
-@AutoConfigureAfter(RedisConfig.class)
 @ConfigurationProperties(prefix = "think-boot.cache")
 public class CacheConfig {
 

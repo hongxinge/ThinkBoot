@@ -8,8 +8,8 @@ import cn.dev33.satoken.filter.SaServletFilter;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
-import cn.dev33.satoken.util.SaResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.thinkboot.web.result.R;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -110,17 +110,17 @@ public class SaTokenWebMvcConfig implements WebMvcConfigurer {
                 .setError(e -> {
                     if (e instanceof NotLoginException) {
                         SaHolder.getResponse().setStatus(401);
-                        return SaResult.error().setCode(401).setMsg(getNotLoginMessage((NotLoginException) e));
+                        return R.fail(401, getNotLoginMessage((NotLoginException) e));
                     }
                     if (e instanceof NotRoleException) {
                         SaHolder.getResponse().setStatus(403);
-                        return SaResult.error().setCode(403).setMsg("缺少角色: " + ((NotRoleException) e).getRole());
+                        return R.fail(403, "缺少角色: " + ((NotRoleException) e).getRole());
                     }
                     if (e instanceof NotPermissionException) {
                         SaHolder.getResponse().setStatus(403);
-                        return SaResult.error().setCode(403).setMsg("缺少权限: " + ((NotPermissionException) e).getPermission());
+                        return R.fail(403, "缺少权限: " + ((NotPermissionException) e).getPermission());
                     }
-                    return SaResult.error(e.getMessage());
+                    return R.fail(500, "系统异常，请稍后重试");
                 })
                 .setBeforeAuth(r -> {
                     SaHolder.getResponse()
