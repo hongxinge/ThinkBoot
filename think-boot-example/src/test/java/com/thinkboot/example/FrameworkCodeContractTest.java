@@ -1,6 +1,8 @@
 package com.thinkboot.example;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.thinkboot.example.controller.ClientApiExampleController;
+import com.thinkboot.example.entity.User;
 import com.thinkboot.security.aspect.DistributedLockAspect;
 import com.thinkboot.web.aspect.RateLimitAspect;
 import com.thinkboot.web.handler.GlobalExceptionHandler;
@@ -13,6 +15,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -50,5 +53,17 @@ class FrameworkCodeContractTest {
         Method method = GlobalExceptionHandler.class
                 .getMethod("handleHttpMessageNotReadable", HttpMessageNotReadableException.class);
         assertNotNull(method);
+    }
+
+    @Test
+    @DisplayName("用户实体序列化到客户端时不得包含密码哈希")
+    void userEntityMustNotExposePassword() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setPassword("$2a$10$shouldNeverLeak");
+        String json = new ObjectMapper().writeValueAsString(user);
+        assertFalse(json.contains("password"),
+                "面向客户端的实体不得把 BCrypt 密码哈希输出到响应体");
     }
 }

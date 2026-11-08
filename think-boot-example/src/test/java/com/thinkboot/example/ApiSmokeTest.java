@@ -15,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -78,6 +79,19 @@ class ApiSmokeTest {
                         .param("username", "attacker"))
                 .andReturn().getResponse().getStatus();
         assertNotEquals(200, statusCode, "不允许存在无密码校验即可签发 Token 的入口");
+    }
+
+    @Test
+    @DisplayName("面向客户端的用户接口与列表接口不得返回密码哈希")
+    void userApiMustNotExposePassword() throws Exception {
+        String token = login();
+        for (String path : new String[]{"/api/v1/user/1", "/api/v1/user/list"}) {
+            String body = mvc.perform(get(path).header("Authorization", token))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            assertFalse(body.contains("\"password\""),
+                    path + " 不得把 BCrypt 密码哈希暴露给客户端");
+        }
     }
 
     @Test

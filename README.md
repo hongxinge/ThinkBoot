@@ -1572,6 +1572,17 @@ public User getById(Long id) {
 
 为业务代码编写单元测试，ThinkBoot 的核心模块已经覆盖了完整的单元测试，确保功能正确性。
 
+### 6. 敏感字段不得随响应输出
+
+面向客户端的 API 若直接返回实体，密码哈希、密钥、令牌等字段会被一并序列化到响应体。框架示例统一在实体字段上声明**只写属性**，一处声明即可对所有返回该实体的接口生效：
+
+```java
+@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+private String password;
+```
+
+`WRITE_ONLY` 保留反序列化写入能力（注册、改密等场景仍可接收该字段），且不影响 MyBatis-Plus 对数据库列的读写；需要按接口精细裁剪字段时，再返回 VO / DTO。`FrameworkCodeContractTest` 与 `ApiSmokeTest` 已把「响应体不得包含 password」固化为回归门禁。
+
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
