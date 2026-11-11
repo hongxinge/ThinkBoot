@@ -68,6 +68,20 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，**专�
 
 ### 2. 引入依赖
 
+> **发布状态（2026-11-11 核实）**：`1.0.0` **尚未发布到 Maven Central**（中央仓库中 `g:"com.thinkboot"` 检索结果为 0）。因此直接复制下面的坐标、而不先执行本地安装，Maven 会报 `Could not find artifact`。当前唯一可用的接入方式是先把本仓库安装到本机 Maven 仓库。
+
+**第 1 步：安装到本地仓库**
+
+```bash
+git clone https://github.com/hongxinge/ThinkBoot.git
+cd ThinkBoot
+mvn -B clean install
+```
+
+国内可使用 Gitee 镜像：`https://gitee.com/hongxinge/think-boot.git`。该命令会把父 POM 与全部模块安装到 `~/.m2/repository/com/thinkboot`，并顺带跑完全量测试（202 条用例）；只想快速安装可追加 `-DskipTests`。
+
+**第 2 步：在业务项目中引用**
+
 在你的 `pom.xml` 中引入 ThinkBoot 父 POM：
 
 ```xml
@@ -78,7 +92,7 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，**专�
 </parent>
 ```
 
-引入需要的模块：
+引入需要的模块（版本由父 POM 的 `dependencyManagement` 统一管理，无需书写 `<version>`）：
 
 ```xml
 <dependencies>
@@ -125,6 +139,8 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，**专�
     </dependency>
 </dependencies>
 ```
+
+> **生产 / 团队使用**：本地安装只适用于本机开发与评估。要在团队或 CI 中共享，需要把构件发布到私有仓库或 Maven Central；此项已列入后续规划。若你的项目无法继承 ThinkBoot 父 POM，也可在自己的 `dependencyManagement` 中按 `1.0.0` 显式声明所需模块版本。
 
 ### 3. 配置文件
 
@@ -1478,13 +1494,14 @@ ThinkBoot 基于 [MIT](LICENSE) 开源协议发布，完全免费，可自由商
 
 ## 质量保障
 
-- **分层测试**：核心模块单元测试 + 示例模块真实启动 / 装配契约测试；发布门禁要求 `mvn clean test` 全绿
-- **启动门禁**：默认配置的日志装配、Redis 组件注册、认证与统一响应均纳入自动化测试，避免「测试全绿但应用无法启动」
+- **分层测试**：核心模块单元测试 + 示例模块真实启动 / 装配契约测试；全仓 202 条用例，发布门禁要求全绿
+- **启动门禁**：默认配置的日志装配、Redis 组件注册、认证与统一响应、敏感字段脱敏均纳入自动化测试，避免「测试全绿但应用无法启动」
+- **持续集成**：GitHub Actions 在每次 push / PR 自动执行「全量构建测试」与「真实 MySQL + Redis 下的默认配置启动冒烟」两个 Job，配置见 `.github/workflows/ci.yml`；Gitee 仓库不运行该工作流，以 GitHub 上的检查状态为准
 - **性能**：操作日志异步写入，Redis 连接池由 Spring Boot 原生配置管理
 - **简单易用**：零配置或最小配置即可启动，无需复杂学习成本
 - **完善文档**：每个模块都有使用示例和配置说明
 
-> 单元测试覆盖各模块的可测逻辑；涉及 Redis / MySQL / 对象存储的集成行为，需要对应中间件可用时才能完整验证。发布前应同时执行构建、测试与真实启动冒烟。
+> 单元测试覆盖各模块的可测逻辑；涉及 Redis / MySQL / 对象存储的集成行为，需要对应中间件可用时才能完整验证。发布前应执行 `mvn -B clean package` 并在真实中间件上完成启动冒烟——这两步已固化到 CI。
 
 ## 常见问题（FAQ）
 
@@ -1547,6 +1564,10 @@ public User getById(Long id) {
     return super.getById(id);
 }
 ```
+
+### 8. 依赖拉取报 `Could not find artifact` 怎么办？
+
+`1.0.0` 尚未发布到 Maven Central。请先按「快速开始 → 2. 引入依赖」的**第 1 步**执行 `mvn -B clean install`，把父 POM 与模块装进本机 Maven 仓库，再在业务项目中引用。若仍失败，检查 `~/.m2/repository/com/thinkboot/think-boot/1.0.0/think-boot-1.0.0.pom` 是否存在（若配置了自定义 `localRepository`，请到对应目录检查）；团队协作场景需要把构件发布到私有仓库或中央仓库。
 
 ## 最佳实践
 

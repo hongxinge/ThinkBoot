@@ -1,0 +1,136 @@
+name: ThinkBoot CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 全量构建与测试
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: 构建与测试
+        run: mvn -B clean package
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: '**/target/surefire-reports/*.txt'
+          if-no-files-found: warn
+      - name: 上传可启动产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: think-boot-example/target/think-boot-example-1.0.0.jar
+          if-no-files-found: error
+
+  smoke:
+    name: 默认配置启动冒烟
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: thinkboot
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: app
+      - name: 初始化数据库
+        run: |
+          docker exec -i "${{ job.services.mysql.id }}" mysql -uroot -proot < think-boot-example/src/main/resources/sql/init.sql
+          docker exec -i "${{ job.services.mysql.id }}" mysql -uroot -proot thinkboot < think-boot-example/src/main/resources/sql/operation_log.sql
+      - name: 默认配置启动并冒烟
+        run: |
+          set -eu
+          java -jar app/think-boot-example-1.0.0.jar --server.port=18080 > app.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 90); do
+            if grep -q "Started ThinkBootApplication" app.log; then break; fi
+            if grep -qE "APPLICATION FAILED TO START|Application run failed" app.log; then
+              cat app.log
+              exit 1
+            fi
+            sleep 1
+          done
+          grep -q "Started ThinkBootApplication" app.log || { cat app.log; exit 1; }
+
+          BASE=http://127.0.0.1:18080
+          check() {
+            label="$1"; expected="$2"; actual="$3"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::$label 期望 $expected，实际 $actual"
+              tail -50 app.log
+              exit 1
+            fi
+            echo "$label: $actual"
+          }
+          check "Swagger UI" 200 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/swagger-ui/index.html")"
+          check "未登录访问" 401 "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/auth/user/info")"
+          check "免密端点已移除" 401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/v1/auth/login?userId=999&username=attacker")"
+
+          LOGIN=$(curl -s -X POST "$BASE/api/auth/login?username=admin&password=123456")
+          echo "$LOGIN" | grep -q '"code":200' || { echo "::error::登录失败: $LOGIN"; tail -50 app.log; exit 1; }
+          TOKEN=$(echo "$LOGIN" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          check "畸形 JSON" 400 "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: $TOKEN" -H 'Content-Type: application/json' -d '{bad json' "$BASE/demo/lock")"
+
+          USER_JSON=$(curl -s -H "Authorization: $TOKEN" "$BASE/api/v1/user/1")
+          if echo "$USER_JSON" | grep -q '"password"'; then
+            echo "::error::客户端 API 泄露密码哈希"
+            exit 1
+          fi
+          echo "密码脱敏: PASS"
+          if grep -q "ERROR" app.log; then
+            echo "::error::启动日志存在 ERROR"
+            grep -n "ERROR" app.log
+            exit 1
+          fi
+          echo "启动日志 ERROR: 0"
+      - name: 失败时输出日志
+        if: failure()
+        run: tail -100 app.log 2>/dev/null || true
