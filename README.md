@@ -68,7 +68,7 @@ ThinkBoot 是一个基于 Spring Boot 3 的轻量级快速开发框架，**专�
 
 ### 2. 引入依赖
 
-> **发布状态（2026-11-11 核实）**：`1.0.0` **尚未发布到 Maven Central**（中央仓库中 `g:"com.thinkboot"` 检索结果为 0）。因此直接复制下面的坐标、而不先执行本地安装，Maven 会报 `Could not find artifact`。当前唯一可用的接入方式是先把本仓库安装到本机 Maven 仓库。
+> **分发方式（2026-11-11 核实）**：本框架以**源码工程**形式分发——开发者从 Gitee / GitHub 下载后，经简单配置即可直接开始业务逻辑开发。`1.0.0` 不通过 Maven Central 提供依赖坐标（中央仓库中 `g:"com.thinkboot"` 检索结果为 0）。因此直接复制下面的坐标、而不先执行本地安装，Maven 会报 `Could not find artifact`。
 
 **第 1 步：安装到本地仓库**
 
@@ -140,7 +140,7 @@ mvn -B clean install
 </dependencies>
 ```
 
-> **生产 / 团队使用**：本地安装只适用于本机开发与评估。要在团队或 CI 中共享，需要把构件发布到私有仓库或 Maven Central；此项已列入后续规划。若你的项目无法继承 ThinkBoot 父 POM，也可在自己的 `dependencyManagement` 中按 `1.0.0` 显式声明所需模块版本。
+> **生产 / 团队使用**：本框架按源码工程分发，团队内各自 clone 并执行 `mvn -B clean install` 即可，**无需搭建私有仓库或发布到 Maven Central**。若多个项目希望以依赖方式复用构件，发布到私有仓库或中央仓库是**可选**路径，不影响常规使用。若你的项目无法继承 ThinkBoot 父 POM，也可在自己的 `dependencyManagement` 中按 `1.0.0` 显式声明所需模块版本。
 
 ### 3. 配置文件
 
@@ -735,14 +735,17 @@ public class UserService extends ServiceImpl<UserMapper, User> {
 }
 ```
 
-**支持的数据源类型**：
-- MySQL（默认内置）
-- PostgreSQL
-- Oracle
-- SQL Server
-- 其他 MyBatis-Plus 支持的数据库
+**数据库支持情况（2026-11-11 实证）**：
 
-> **注意**：使用其他数据库时，需要在 `pom.xml` 中添加对应驱动依赖，并确保 `PaginationInnerInterceptor` 能自动识别数据库类型。
+| 层级 | 数据库 | 使用成本 | 验证状态 |
+|------|--------|----------|----------|
+| 一等 · 开箱即用 | MySQL 8.x（MariaDB 多数场景） | 零改动：驱动内置、`application.yml` 默认 MySQL、初始化脚本与 CI 均按 MySQL 提供 | 本机真机 + GitHub Actions 双验证 |
+| 二等 · 测试内建 | H2（`MODE=MySQL`） | test scope + 专用 `schema-h2.sql`，仅用于测试 | 202 条用例跑通，非生产用途 |
+| 三等 · 运行时可跑 | PostgreSQL / Oracle / SQL Server 及 MyBatis-Plus 支持的其它关系库 | 需自行添加驱动、修改 `DB_URL` 与 `driver-class-name`、按目标库改写建表脚本；代码生成器还需加入对应驱动 | 无自动化验证 |
+
+运行时 ORM 层无方言耦合：全仓无手写 SQL 与 `Mapper.xml`，`PaginationInnerInterceptor` 未硬编码 `DbType`（由 MyBatis-Plus 按 JDBC URL 自动推断），主键为 Java 层雪花 ID，审计字段由 `LocalDateTime.now()` 填充。因此上表第三档在**运行业务逻辑**层面可行；但 `init.sql` / `operation_log.sql` 使用 MySQL 专有语法（反引号、`ENGINE=InnoDB`、`TINYINT`、`ON UPDATE CURRENT_TIMESTAMP`、内联 `COMMENT` 等），**开箱即用体验目前只对 MySQL 成立**。
+
+> 当前版本按「MySQL 单库优先」设计。如需把 PostgreSQL 提升为开箱即用支持，需补齐可选驱动、对应建表脚本、CI 验证 Job 与切换文档，本版本未纳入。
 
 ### think-boot-codegen
 
@@ -1567,7 +1570,7 @@ public User getById(Long id) {
 
 ### 8. 依赖拉取报 `Could not find artifact` 怎么办？
 
-`1.0.0` 尚未发布到 Maven Central。请先按「快速开始 → 2. 引入依赖」的**第 1 步**执行 `mvn -B clean install`，把父 POM 与模块装进本机 Maven 仓库，再在业务项目中引用。若仍失败，检查 `~/.m2/repository/com/thinkboot/think-boot/1.0.0/think-boot-1.0.0.pom` 是否存在（若配置了自定义 `localRepository`，请到对应目录检查）；团队协作场景需要把构件发布到私有仓库或中央仓库。
+`1.0.0` 不通过 Maven Central 提供依赖坐标。请先按「快速开始 → 2. 引入依赖」的**第 1 步**执行 `mvn -B clean install`，把父 POM 与模块装进本机 Maven 仓库，再在业务项目中引用。若仍失败，检查 `~/.m2/repository/com/thinkboot/think-boot/1.0.0/think-boot-1.0.0.pom` 是否存在（若配置了自定义 `localRepository`，请到对应目录检查）；团队协作时各自执行本地安装即可，无需发布到中央仓库。
 
 ## 最佳实践
 
